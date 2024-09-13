@@ -68,7 +68,7 @@ def process_csv_and_search_links(csv_file_path, updated_csv_file_path, url):
 
 # Define file paths and URLs
 csv_file_path = 'kaitsekategooria_selgroogsed_loomad.csv'
-updated_csv_file_path = 'updated_kaitsekategooria_selgroogsed_loomad.csv'
+updated_csv_file_path = 'EELIS_kaitsekategooria_selgroogsed_loomad.csv'
 url = 'https://infoleht.keskkonnainfo.ee/artikkel/1389049207'
 
 # Run the script
