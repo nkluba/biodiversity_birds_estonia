@@ -1,12 +1,10 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
-import os
 
 
 def read_csv(file_path):
@@ -25,16 +23,16 @@ def init_webdriver(headless=True):
 
 
 def search_and_get_link(driver, wait, url, estonian_name, latin_name):
-    """Search for the species on the provided URL and return the first link found."""
+    """Search for the species on the provided URL using the second search window and return the first link found."""
     driver.get(url)
 
-    # Find the search input field containing õsti and enter the search keyword
-    search_field = wait.until(EC.presence_of_element_located((By.ID, 'otsi')))
+    # Find the second search input field and enter the search keyword
+    search_field = wait.until(EC.presence_of_element_located((By.ID, 'otsi_nimi')))
     search_field.clear()
     search_field.send_keys(f"{estonian_name} ({latin_name})")
 
-    # Find and click the search button
-    search_button = driver.find_element(By.XPATH, "//input[@type='image' and @form='sNavSearchFormId']")
+    # Find and click the search button in the second search window
+    search_button = driver.find_element(By.XPATH, "//input[@type='submit' and @form='sObjSearchFormId']")
     search_button.click()
 
     try:
@@ -49,7 +47,7 @@ def search_and_get_link(driver, wait, url, estonian_name, latin_name):
 
 
 def process_csv_and_search_links(csv_file_path, updated_csv_file_path, url):
-    """ Main function to read CSV, search for each species, and save updated CSV. """
+    """ Main function to read CSV, search for each species using the second search window, and save updated CSV. """
     df = read_csv(csv_file_path)
     driver, wait = init_webdriver(headless=False)  # Change to headless=True for headless mode
 
