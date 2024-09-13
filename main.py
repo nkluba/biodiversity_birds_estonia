@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+import re
 
 
 def fetch_page(url):
@@ -37,8 +38,23 @@ def extract_species_data(soup, section_title, category):
                     estonian_name = cells[0].text.strip()
                     latin_name = cells[1].text.strip(';').strip()
                     data.append([estonian_name, latin_name, category])
-
     return data
+
+
+def clean_data(data):
+    """
+    Clean the species data.
+
+    :param data: List of species data.
+    :return: Cleaned list of species data.
+    """
+    cleaned_data = []
+    for item in data:
+        estonian_name = re.sub(r"^\d+\s*\)", "", item[0]).strip()  # Remove numbering and strip
+        latin_name = re.sub(r";?\s*\[.*?\]", "", item[1]).strip()  # Remove trailing punctuation and text in brackets
+        cleaned_data.append([estonian_name, latin_name, item[2]])
+
+    return cleaned_data
 
 
 def parse_species_data(url, sections):
@@ -56,7 +72,7 @@ def parse_species_data(url, sections):
     for section_title, category in sections.items():
         all_data.extend(extract_species_data(soup, section_title, category))
 
-    return all_data
+    return clean_data(all_data)
 
 
 def save_to_csv(data, filename):
