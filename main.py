@@ -27,16 +27,16 @@ def extract_species_data(soup, section_title, category):
     """
     data = []
     # Find the section in the text
-    section_header = soup.find('a', {'name': section_title})
+    section_header = soup.find("a", {"name": section_title})
     if section_header:
-        table = section_header.find_next('table')
+        table = section_header.find_next("table")
         if table:
-            rows = table.find_all('tr')
+            rows = table.find_all("tr")
             for row in rows:
-                cells = row.find_all('td')
+                cells = row.find_all("td")
                 if len(cells) >= 2:
                     estonian_name = cells[0].text.strip()
-                    latin_name = cells[1].text.strip(';').strip()
+                    latin_name = cells[1].text.strip(";").strip()
                     data.append([estonian_name, latin_name, category])
     return data
 
@@ -50,9 +50,15 @@ def clean_data(data):
     """
     cleaned_data = []
     for item in data:
-        estonian_name = re.sub(r"^\d+[\)¹]*\s*", "", item[0]).strip()  # Remove numbering and strip
-        latin_name = re.sub(r";?\s*\[.*?\]", "", item[1]).strip()  # Remove trailing punctuation and text in brackets
-        latin_name = re.sub(r"[;,.]*$", "", latin_name).strip()  # Remove any trailing punctuation
+        estonian_name = re.sub(
+            r"^\d+[\)¹]*\s*", "", item[0]
+        ).strip()  # Remove numbering and strip
+        latin_name = re.sub(
+            r";?\s*\[.*?\]", "", item[1]
+        ).strip()  # Remove trailing punctuation and text in brackets
+        latin_name = re.sub(
+            r"[;,.]*$", "", latin_name
+        ).strip()  # Remove any trailing punctuation
         cleaned_data.append([estonian_name, latin_name, item[2]])
 
     return cleaned_data
@@ -93,13 +99,11 @@ def main():
     url_2 = "https://www.riigiteataja.ee/akt/104072014022"
 
     sections_url_1 = {
-        'para4': 'I',  # I kaitsekategooria selgroogsed loomad
-        'lg11': 'II'  # II kaitsekategooria selgroogsed loomad
+        "para4": "I",  # I kaitsekategooria selgroogsed loomad
+        "lg11": "II",  # II kaitsekategooria selgroogsed loomad
     }
 
-    sections_url_2 = {
-        'lg5': 'III'  # III kaitsekategooria selgroogsed loomad
-    }
+    sections_url_2 = {"lg5": "III"}  # III kaitsekategooria selgroogsed loomad
 
     data_1 = parse_species_data(url_1, sections_url_1)
     data_2 = parse_species_data(url_2, sections_url_2)
