@@ -50,8 +50,9 @@ def clean_data(data):
     """
     cleaned_data = []
     for item in data:
-        estonian_name = re.sub(r"^\d+\s*\)", "", item[0]).strip()  # Remove numbering and strip
+        estonian_name = re.sub(r"^\d+[\)¹]*\s*", "", item[0]).strip()  # Remove numbering and strip
         latin_name = re.sub(r";?\s*\[.*?\]", "", item[1]).strip()  # Remove trailing punctuation and text in brackets
+        latin_name = re.sub(r"[;,.]*$", "", latin_name).strip()  # Remove any trailing punctuation
         cleaned_data.append([estonian_name, latin_name, item[2]])
 
     return cleaned_data
