@@ -35,8 +35,8 @@ def gather_table_data(driver, wait):
         cells = row.find_elements(By.TAG_NAME, "td")
         if len(cells) < 2:
             continue
-        key = cells[0].text.strip()
-        value = cells[1].text.strip()
+        key = cells[0].text.strip().replace("\n", " ")
+        value = cells[1].text.strip().replace("\n", " ")
         table_data[key] = value
 
     return table_data
@@ -53,7 +53,7 @@ def check_and_download_strategy(driver):
                                      "//td[contains(text(), 'Liigi tegevuskava')]//following-sibling::td/a[contains(@href, 'getdok')]")
         for link in links:
             href = link.get_attribute("href")
-            file_name = link.text.strip() or "strategy_document"
+            file_name = link.text.strip().replace("\n", " ") or "strategy_document"
             response = requests.get(href)
 
             if response.status_code == 200:
@@ -68,7 +68,7 @@ def check_and_download_strategy(driver):
 
 def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
     """Main function to read CSV, extract data from EELIS links, and save updated CSV."""
-    df = read_csv(csv_file_path)[:5]
+    df = read_csv(csv_file_path)
     driver, wait = init_webdriver(headless=False)  # Change to headless=True for headless mode
 
     all_columns = set(df.columns)
@@ -94,6 +94,8 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
 
         # Add new data to DataFrame
         for key, value in table_data.items():
+            key = key.replace("\n", " ").strip()
+            value = value.replace("\n", " ").strip()
             if key not in all_columns:
                 df[key] = None
                 all_columns.add(key)
