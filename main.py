@@ -1,45 +1,42 @@
 import requests
-from bs4 import BeautifulSoup
+import re
 import pandas as pd
 
 
 def fetch_page(url):
     """
-    Fetch the content of the web page.
+    Fetch the plain text content of the web page.
 
     :param url: URL of the web page.
-    :return: BeautifulSoup object of the parsed HTML content.
+    :return: Plain text content of the web page.
     """
     response = requests.get(url)
-    print(response.content)
     response.raise_for_status()  # Raise an exception for HTTP errors
-    return BeautifulSoup(response.content, "html.parser")
+    return response.text
 
 
-def extract_species_data(soup, title_text, category):
+def extract_species_data(text, section_title, category):
     """
-    Extract species data from a specific section of the HTML content.
+    Extract species data from the plain text content.
 
-    :param soup: BeautifulSoup object of the parsed HTML content.
-    :param title_text: The title text to search for (e.g., 'I kaitsekategooria selgroogsed loomad').
+    :param text: The plain text content of the page.
+    :param section_title: The section title to search for (e.g., 'I kaitsekategooria selgroogsed loomad').
     :param category: The extinction category.
     :return: List of extracted species data.
     """
     data = []
+    # Find the section in the text
+    section_pattern = re.compile(rf'{section_title}(.*?)(?:§|\Z)', re.DOTALL)
+    section_match = section_pattern.search(text)
 
-    section_header = soup.find(string=title_text)
-    if section_header:
-        section = section_header.find_parent("section")
-        if section:  # Ensure the section is found
-            items = section.find_all("p")
-            for item in items:
-                text = item.get_text().strip()
-                if text:
-                    parts = text.split('\n')
-                    if len(parts) >= 2:
-                        estonian_name = parts[0].split()[0]
-                        latin_name = parts[1].strip(";")
-                        data.append([estonian_name, latin_name, category])
+    if section_match:
+        section_text = section_match.group(1)
+        # Match the pattern of Estonian Name and Latin Name within the section
+        species_pattern = re.compile(r'\d+\)\s+([^\n]+?)[\t\s]+([\w\s]+);')
+        for match in species_pattern.finditer(section_text):
+            estonian_name = match.group(1).strip()
+            latin_name = match.group(2).strip()
+            data.append([estonian_name, latin_name, category])
 
     return data
 
@@ -49,14 +46,16 @@ def parse_species_data(url, sections):
     Parse species data from a web page.
 
     :param url: URL of the web page.
-    :param sections: Dictionary of title texts and their corresponding categories.
+    :param sections: Dictionary of section titles and their corresponding categories.
     :return: List of all extracted species data.
     """
     all_data = []
-    soup = fetch_page(url)
+    text = fetch_page(url)
 
-    for title_text, category in sections.items():
-        all_data.extend(extract_species_data(soup, title_text, category))
+    print(text)
+
+    for section_title, category in sections.items():
+        all_data.extend(extract_species_data(text, section_title, category))
 
     return all_data
 
