@@ -65,7 +65,7 @@ def check_and_download_strategy(driver):
 
 def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
     """Main function to read CSV, extract data from EELIS links, and save updated CSV."""
-    df = read_csv(csv_file_path)[:5]
+    df = read_csv(csv_file_path)
     driver, wait = init_webdriver(headless=False)  # Change to headless=True for headless mode
 
     all_columns = set(df.columns)
