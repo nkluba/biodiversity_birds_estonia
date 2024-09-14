@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
-from googlesearch import search
 import logging
+import time
+from googlesearch import search  # Ensure you have 'googlesearch-python' installed
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # Define the directory to store downloaded PDF files
 strategy_materials_dir = "strategy_materials"
 csv_file = "EELIS_additional_data.csv"
+search_delay = 10  # Delay between search requests in seconds
 
 def create_strategy_materials_dir(directory):
     if not os.path.exists(directory):
@@ -24,15 +25,31 @@ def save_csv(df, file_path):
     df.to_csv(file_path, index=False)
     logging.info(f"Updated CSV file saved to {file_path}")
 
-def search_pdfs(query, num_results=10):
+def search_pdfs(query, num_results=10, max_retries=5):
     logging.info(f"Searching for: {query}")
-    pdf_links = []
-    for result in search(query, num_results=num_results):
-        if result.lower().endswith(".pdf"):
-            pdf_links.append(result)
-        if len(pdf_links) >= 3:
+    retries = 0
+    while retries < max_retries:
+        try:
+            pdf_links = []
+            for result in search(query, num_results=num_results):
+                if result.lower().endswith(".pdf"):
+                    pdf_links.append(result)
+                if len(pdf_links) >= 3:
+                    break
+            return pdf_links
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                retries += 1
+                wait_time = search_delay * retries
+                logging.warning(f"Too many requests. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                logging.error(f"HTTPError encountered: {e}")
+                break
+        except Exception as e:
+            logging.error(f"Error encountered: {e}")
             break
-    return pdf_links
+    return []
 
 def download_pdf(url, folder):
     try:
