@@ -36,6 +36,7 @@ def search_pdfs(query, num_results=10, max_retries=5):
                     pdf_links.append(result)
                 if len(pdf_links) >= 3:
                     break
+            time.sleep(5)  # Sleep for 5 seconds after each query
             return pdf_links
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 429:
