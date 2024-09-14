@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import logging
 import time
+from datetime import datetime
 from googlesearch import search  # Ensure you have 'googlesearch-python' installed
 
 # Setup logging
@@ -13,31 +14,37 @@ strategy_materials_dir = "strategy_materials"
 csv_file = "EELIS_additional_data.csv"
 search_delay = 10  # Delay between search requests in seconds
 
+
 def create_strategy_materials_dir(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
         logging.info(f"Directory '{directory}' created.")
 
+
 def load_csv(file_path):
     return pd.read_csv(file_path)
+
 
 def save_csv(df, file_path):
     df.to_csv(file_path, index=False)
     logging.info(f"Updated CSV file saved to {file_path}")
 
+
 def search_pdfs(query, num_results=10, max_retries=5):
     logging.info(f"Searching for: {query}")
     retries = 0
+    pdf_links = []
+
     while retries < max_retries:
         try:
-            pdf_links = []
             for result in search(query, num_results=num_results):
                 if result.lower().endswith(".pdf"):
                     pdf_links.append(result)
                 if len(pdf_links) >= 3:
                     break
-            time.sleep(5)  # Sleep for 5 seconds after each query
+            time.sleep(search_delay)  # Delay between queries
             return pdf_links
+
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 429:
                 retries += 1
@@ -48,9 +55,13 @@ def search_pdfs(query, num_results=10, max_retries=5):
                 logging.error(f"HTTPError encountered: {e}")
                 break
         except Exception as e:
-            logging.error(f"Error encountered: {e}")
-            break
+            retries += 1
+            wait_time = search_delay * retries
+            logging.error(f"Error encountered: {e}. Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+
     return []
+
 
 def download_pdf(url, folder):
     try:
@@ -67,6 +78,7 @@ def download_pdf(url, folder):
         logging.error(f"Failed to download {url}: {e}")
     return None
 
+
 def update_dataframe(df, directory):
     for index, row in df.iterrows():
         if not row['strategy_present']:  # Check if strategy_present is False
@@ -80,13 +92,16 @@ def update_dataframe(df, directory):
             if downloaded_files:
                 df.at[index, 'strategy_present'] = True
                 df.at[index, 'strategy_file'] = ",".join(downloaded_files)
+                save_csv(df, csv_file)  # Save CSV after each iteration
     return df
+
 
 def main():
     create_strategy_materials_dir(strategy_materials_dir)
     df = load_csv(csv_file)
     df = update_dataframe(df, strategy_materials_dir)
-    save_csv(df, csv_file)
+    save_csv(df, csv_file)  # Final save to ensure all changes are written
+
 
 if __name__ == "__main__":
     main()
