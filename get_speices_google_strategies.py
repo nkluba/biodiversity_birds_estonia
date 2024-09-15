@@ -11,7 +11,8 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Define the directory to store downloaded PDF files
 strategy_materials_dir = "strategy_materials"
-csv_file = "EELIS_additional_data.csv"
+input_csv_file = "EELIS_additional_data.csv"  # Original CSV file
+output_csv_file = "pdf_gathered.csv"  # New CSV file to save results
 search_delay = 10  # Delay between search requests in seconds
 
 
@@ -92,15 +93,15 @@ def update_dataframe(df, directory):
             if downloaded_files:
                 df.at[index, 'strategy_present'] = True
                 df.at[index, 'strategy_file'] = ",".join(downloaded_files)
-                save_csv(df, csv_file)  # Save CSV after each iteration
+                save_csv(df, output_csv_file)  # Save results to the specified new CSV file
     return df
 
 
 def main():
     create_strategy_materials_dir(strategy_materials_dir)
-    df = load_csv(csv_file)
+    df = load_csv(input_csv_file)
     df = update_dataframe(df, strategy_materials_dir)
-    save_csv(df, csv_file)  # Final save to ensure all changes are written
+    save_csv(df, output_csv_file)  # Final save to ensure all changes are written to the new CSV file
 
 
 if __name__ == "__main__":
