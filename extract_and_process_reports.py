@@ -1,5 +1,4 @@
 import os
-from PyPDF2 import PdfFileReader
 import fitz  # PyMuPDF
 import pytesseract
 from pdf2image import convert_from_path
