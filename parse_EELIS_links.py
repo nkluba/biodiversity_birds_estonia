@@ -99,6 +99,9 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
     if strategy_file_column not in all_columns:
         df[strategy_file_column] = None
 
+    # Filter rows where Rühm == Linnud
+    df = df[df['Rühm'] == 'Linnud']
+
     # Function to process each row
     for idx, row in df.iterrows():
         eelis_link = row["EELIS link"]
@@ -128,8 +131,16 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
     # Close the browser
     driver.quit()
 
-    # Save the updated DataFrame back to CSV
-    df.to_csv(updated_csv_file_path, index=False)
+    # Define the columns to be saved
+    columns_to_save = [
+        "Estonian Name", "Latin Name", "Category", "EELIS link", "strategy_present",
+        "strategy_file", "Tüüp", "Nimi ladina k", "Nimi eesti k", "Nimi inglise k",
+        "Rühm", "Kaitsekategooria", "Kirjeldus", "Direktiivi lisad", "Liigi ohustatuse hinnang",
+        "Ohutegurite kirjeldus", "Liigi tegevuskava", "Kaitsealused alad, kus on kaitse eesmärgiks"
+    ]
+
+    # Save the filtered DataFrame back to CSV
+    df[columns_to_save].to_csv(updated_csv_file_path, index=False)
     print(f"Updated CSV saved to {updated_csv_file_path}")
 
 
