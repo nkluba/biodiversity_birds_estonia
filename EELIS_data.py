@@ -24,14 +24,14 @@ def init_webdriver(headless=True):
     return driver, wait
 
 
-def search_and_get_link(driver, wait, url, estonian_name, latin_name):
+def search_with_name(driver, wait, url, name):
     """Search for the species on the provided URL using the second search window and return the first link found."""
     driver.get(url)
 
     # Find the second search input field and enter the search keyword
     search_field = wait.until(EC.presence_of_element_located((By.ID, "otsi_nimi")))
     search_field.clear()
-    search_field.send_keys(f"{estonian_name} ({latin_name})")
+    search_field.send_keys(name)
 
     # Find and click the search button in the second search window
     search_button = driver.find_element(
@@ -53,18 +53,23 @@ def search_and_get_link(driver, wait, url, estonian_name, latin_name):
     return link
 
 
+def search_and_get_link(driver, wait, url, estonian_name, latin_name):
+    """Search for the species on the provided URL using the second search window and return the first link found."""
+    combined_name = f"{estonian_name} ({latin_name})"
+    link = search_with_name(driver, wait, url, combined_name)
+    if link == "NotFound":
+        link = search_with_name(driver, wait, url, estonian_name)
+    return link
+
+
 def process_csv_and_search_links(csv_file_path, updated_csv_file_path, url):
     """Main function to read CSV, search for each species using the second search window, and save updated CSV."""
     df = read_csv(csv_file_path)
-    driver, wait = init_webdriver(
-        headless=False
-    )  # Change to headless=True for headless mode
+    driver, wait = init_webdriver(headless=False)  # Change to headless=True for headless mode
 
     # Function to process each row
     def process_row(row):
-        return search_and_get_link(
-            driver, wait, url, row["Estonian Name"], row["Latin Name"]
-        )
+        return search_and_get_link(driver, wait, url, row["Estonian Name"], row["Latin Name"])
 
     # Apply the process_row function to each row
     df["EELIS link"] = df.apply(lambda row: process_row(row), axis=1)
