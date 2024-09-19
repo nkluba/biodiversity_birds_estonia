@@ -29,6 +29,7 @@ def init_webdriver(headless=True):
 def gather_table_data(driver, wait):
     """Extract all data from the table on the webpage and return as a dictionary."""
     table_data = {}
+    # Locate the table rows
     rows = wait.until(
         EC.presence_of_all_elements_located(
             (
@@ -82,17 +83,21 @@ def check_and_download_strategy(driver):
 def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
     """Main function to read CSV, extract data from EELIS links, and save updated CSV."""
     df = read_csv(csv_file_path)
-    driver, wait = init_webdriver(headless=False)  # Change to headless=True for headless mode
+    driver, wait = init_webdriver(
+        headless=False
+    )  # Change to headless=True for headless mode
 
-    columns_to_save = [
-        "Estonian Name", "Latin Name", "Category", "EELIS link", "strategy_present",
-        "strategy_file", "Tüüp", "Nimi ladina k", "Nimi eesti k", "Nimi inglise k",
-        "Rühm", "Kaitsekategooria", "Kirjeldus", "Direktiivi lisad", "Liigi ohustatuse hinnang",
-        "Ohutegurite kirjeldus", "Liigi tegevuskava", "Kaitsealused alad, kus on kaitse eesmärgiks"
-    ]
+    all_columns = set(df.columns)
 
-    # Prepare a DataFrame for the output data
-    output_df = pd.DataFrame(columns=columns_to_save)
+    # Ensure necessary columns exist
+    strategy_present_column = "strategy_present"
+    strategy_file_column = "strategy_file"
+
+    if strategy_present_column not in all_columns:
+        df[strategy_present_column] = False
+
+    if strategy_file_column not in all_columns:
+        df[strategy_file_column] = None
 
     # Function to process each row
     for idx, row in df.iterrows():
@@ -105,44 +110,36 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
         # Extract table data
         table_data = gather_table_data(driver, wait)
 
-        # Keep only the necessary columns from the scraped data
-        table_data = {k: table_data.get(k, None) for k in columns_to_save if k in table_data}
-
         # Check for strategy
         strategy_present, strategy_files = check_and_download_strategy(driver)
-        table_data["strategy_present"] = strategy_present
-        table_data["strategy_file"] = "; ".join(strategy_files) if strategy_files else None
+        df.at[idx, strategy_present_column] = strategy_present
+        if strategy_present:
+            df.at[idx, strategy_file_column] = "; ".join(strategy_files)
 
-        table_data.update({
-            "Estonian Name": row["Estonian Name"],
-            "Latin Name": row["Latin Name"],
-            "Category": row["Category"],
-            "EELIS link": row["EELIS link"],
-            "Tüüp": row["Tüüp"],
-            "Nimi ladina k": row["Nimi ladina k"],
-            "Nimi eesti k": row["Nimi eesti k"],
-            "Nimi inglise k": row["Nimi inglise k"],
-            "Rühm": row["Rühm"],
-            "Kaitsekategooria": row["Kaitsekategooria"],
-            "Kirjeldus": row["Kirjeldus"],
-            "Direktiivi lisad": row["Direktiivi lisad"],
-            "Liigi ohustatuse hinnang": row["Liigi ohustatuse hinnang"],
-            "Ohutegurite kirjeldus": row["Ohutegurite kirjeldus"],
-            "Liigi tegevuskava": row["Liigi tegevuskava"],
-            "Kaitsealused alad, kus on kaitse eesmärgiks": row["Kaitsealused alad, kus on kaitse eesmärgiks"]
-        })
-
-        # Append to the output DataFrame
-        output_df = output_df.append(table_data, ignore_index=True)
+        # Add new data to DataFrame
+        for key, value in table_data.items():
+            key = key.replace("\n", " ").strip()
+            value = value.replace("\n", " ").strip()
+            if key not in all_columns:
+                df[key] = None
+                all_columns.add(key)
+            df.at[idx, key] = value
 
     # Close the browser
     driver.quit()
 
-    # Filter the rows where Rühm == Linnud
-    output_df = output_df[output_df["Rühm"] == "Linnud"]
+    # Subset the DataFrame
+    columns_to_keep = [
+        "Estonian Name", "Latin Name", "Category", "EELIS link", "strategy_present",
+        "strategy_file", "Tüüp", "Nimi ladina k", "Nimi eesti k", "Nimi inglise k",
+        "Rühm", "Kaitsekategooria", "Kirjeldus", "Direktiivi lisad", "Liigi ohustatuse hinnang",
+        "Ohutegurite kirjeldus", "Liigi tegevuskava", "Kaitsealused alad, kus on kaitse eesmärgiks"
+    ]
 
-    # Save the output DataFrame to CSV
-    output_df.to_csv(updated_csv_file_path, index=False)
+    df = df[df['Rühm'] == 'Linnud'][columns_to_keep]
+
+    # Save the updated DataFrame back to CSV
+    df.to_csv(updated_csv_file_path, index=False)
     print(f"Updated CSV saved to {updated_csv_file_path}")
 
 
