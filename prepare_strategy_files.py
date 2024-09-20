@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import fitz  # PyMuPDF
 import re
@@ -27,9 +29,9 @@ def count_occurrences(text, name):
 def process_pdfs_in_csv(filename):
     """ Process each row in the CSV file """
     df = pd.read_csv(filename)
+
     for index, row in df.iterrows():
         files = row['strategy_file'].split(',')
-
         if len(files) > 1:
             # Extract the Estonian name from the 'Estonian Name' column
             name = row['Estonian Name']
@@ -38,20 +40,19 @@ def process_pdfs_in_csv(filename):
 
             max_mentions = 0
             most_mentions_file = None
-            print(name)
+
             for pdf in files:
                 pdf = pdf.strip()  # Remove any trailing spaces
                 text = extract_text_from_pdf(pdf)
                 if text is None:
                     continue
                 mentions = count_occurrences(text, name)
-                print(mentions)
                 if mentions > max_mentions:
                     max_mentions = mentions
                     most_mentions_file = pdf
 
             if most_mentions_file:
-                df.at[index, 'strategy_file'] = most_mentions_file
+                df.at[index, 'strategy_file'] = most_mentions_file.replace('strategy_materials/', '')
             else:
                 df.at[index, 'strategy_file'] = 'Not Present'
 
