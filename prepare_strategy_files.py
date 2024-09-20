@@ -29,33 +29,35 @@ def process_pdfs_in_csv(filename):
     df = pd.read_csv(filename)
     for index, row in df.iterrows():
         files = row['strategy_file'].split(',')
+
         if len(files) > 1:
-            # Extract the Estonian name from the file string - you might need to adjust this
-            name_match = re.search(r'^([^_]+)', row['strategy_file'])
-            if not name_match:
+            # Extract the Estonian name from the 'Estonian Name' column
+            name = row['Estonian Name']
+            if not name:
                 continue
-            name = name_match.group(1)
 
             max_mentions = 0
             most_mentions_file = None
-
+            print(name)
             for pdf in files:
+                pdf = pdf.strip()  # Remove any trailing spaces
                 text = extract_text_from_pdf(pdf)
                 if text is None:
                     continue
                 mentions = count_occurrences(text, name)
+                print(mentions)
                 if mentions > max_mentions:
                     max_mentions = mentions
                     most_mentions_file = pdf
 
             if most_mentions_file:
-                df.at[index, 'strategy_file'] = most_mentions_file.split('/')[-1]
+                df.at[index, 'strategy_file'] = most_mentions_file
             else:
-                df.at[index, 'strategy_file'] = 'No match found'
+                df.at[index, 'strategy_file'] = 'Not Present'
 
     # Save the updated DataFrame back to CSV
-    df.to_csv('updated_pdf_gathered.csv', index=False)
+    df.to_csv('st5_relevant_pdf_reports.csv', index=False)
 
 
 # Run the function with the filename
-process_pdfs_in_csv('pdf_gathered.csv')
+process_pdfs_in_csv('st4_pdf_gathered.csv')

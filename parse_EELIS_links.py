@@ -145,5 +145,5 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
 
 # Example usage
 process_csv_and_extract_data(
-    "EELIS_kaitsekategooria_selgroogsed_loomad.csv", "EELIS_additional_data.csv"
+    "st2_EELIS_kaitsekategooria_selgroogsed_loomad.csv", "st3_EELIS_additional_data.csv"
 )
