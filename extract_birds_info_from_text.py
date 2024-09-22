@@ -62,7 +62,7 @@ def format_using_gpt(text):
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:5]
+    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:5].fillna('')
 
     # Container for formatted responses
     formatted_responses = []
@@ -70,19 +70,17 @@ def main():
     # Process each row in the DataFrame
     for _, row in df.iterrows():
         estonian_name = row['Estonian Name']
-        kirjeldus_text = str(row.get('Kirjeldus', '') or '')
-        ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus', '') or '')
-
+        kirjeldus_text = str(row.get('Kirjeldus'))
+        ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
         kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
 
         strategy_file = row['strategy_file']
-
-        if kirjeldus.strip():
+        if not kirjeldus.isspace():
             # Format the combined 'Kirjeldus' and 'Ohutegurite kirjeldus'
             formatted_text = format_using_gpt(kirjeldus)
         else:
             # Read from the text file converted from PDF
-            text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '.txt'))
+            text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
             text = read_text_from_file(text_file_path)
 
             # Extract relevant sections for the bird
@@ -106,3 +104,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# - get response as JSON and set to columns
+# - if one of kirjeldus/ohu_kirjendus is empty, construct query to get missing values from pdf's
+# - if kirjeldus+ohu_kirjendus after first request go through columns and for NA submit new query basing on pdf
+# - check if pdf is bird-centered or not; if is, then extract only Kokkuvotte part (if present)
