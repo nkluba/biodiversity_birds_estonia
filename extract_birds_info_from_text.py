@@ -50,10 +50,21 @@ def format_using_gpt(text):
 
 
 def format_using_gpt(text):
-    # Translating prompt to Estonian
+    # Construct the new prompt based on the provided parameters
     prompt = (
         f"Vorminda järgmine teave 'veetallaja' kohta selgel ja struktureeritud viisil:\n\n{text}\n\n"
-        "Struktuur on järgmine:\n- Elupaik\n- Elupaiga seisund\n- Populatsiooni staatus/muutused\n- Ohud\n- Muu (kui on)"
+        "Struktuur on järgmine:\n"
+        "- Elupaik\n"
+        "- Elupaiga seisund\n"
+        "- Elupaik teistes riikides\n"
+        "- Populatsiooni seisund/muutused\n"
+        "- Läbiviidud uuringud\n"
+        "- Kavandatud, kuid läbi viimata uuringud (nt programmid koos Venemaaga)\n"
+        "- Ohud\n"
+        "- Populatsiooni muutused (nt suurenenud, vähenenud, sama tase == stabiilne)\n"
+        "- Seisund ELis\n"
+        "- Kas rändlinnud\n"
+        "- Populatsioonitrend teistes ELi riikides (nt mõõdukalt väheneb, mõõdukalt suureneb)"
     )
 
     stream = client.chat.completions.create(
@@ -67,13 +78,13 @@ def format_using_gpt(text):
 
     response_content = ""
     for chunk in stream:
+        print(chunk)
         for choice in chunk.choices:
             content = choice.delta.content
             if content is not None:
                 response_content += content
 
     return response_content.strip()
-
 
 
 def main():
