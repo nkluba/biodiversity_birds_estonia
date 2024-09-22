@@ -49,6 +49,33 @@ def format_using_gpt(text):
     return response_content.strip()
 
 
+def format_using_gpt(text):
+    # Translating prompt to Estonian
+    prompt = (
+        f"Vorminda järgmine teave 'veetallaja' kohta selgel ja struktureeritud viisil:\n\n{text}\n\n"
+        "Struktuur on järgmine:\n- Elupaik\n- Elupaiga seisund\n- Populatsiooni staatus/muutused\n- Ohud\n- Muu (kui on)"
+    )
+
+    stream = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Oled abivalmis assistent, kes aitab ekstraktitud teavet vormindada."},
+            {"role": "user", "content": prompt}
+        ],
+        stream=True
+    )
+
+    response_content = ""
+    for chunk in stream:
+        for choice in chunk.choices:
+            content = choice.delta.content
+            if content is not None:
+                response_content += content
+
+    return response_content.strip()
+
+
+
 def main():
     # Step 1: Read the text from the file
     file_path = 'strategy_materials/A2%20Paljassaare%20kaitsekorralduskava%2C%20projektiala%2038_cleaned.txt'
