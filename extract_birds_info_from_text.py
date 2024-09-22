@@ -53,17 +53,15 @@ def format_using_gpt(text):
     # Construct the new prompt based on the provided parameters
     prompt = (
         f"Vorminda järgmine teave 'veetallaja' kohta selgel ja struktureeritud viisil:\n\n{text}\n\n"
-        "Struktuur on järgmine:\n"
+        "Struktuur on järgmine (KUI TEAVE PUUDUP TEKSTIS, JÄÄTA 'NA'):\n"
         "- Elupaik\n"
         "- Elupaiga seisund\n"
-        "- Elupaik teistes riikides\n"
-        "- Populatsiooni seisund/muutused\n"
-        "- Läbiviidud uuringud\n"
-        "- Kavandatud, kuid läbi viimata uuringud (nt programmid koos Venemaaga)\n"
         "- Ohud\n"
         "- Populatsiooni muutused (nt suurenenud, vähenenud, sama tase == stabiilne)\n"
-        "- Seisund ELis\n"
         "- Kas rändlinnud\n"
+        "- Läbiviidud uuringud\n"
+        "- Kavandatud, kuid läbi viimata uuringud (nt programmid koos Venemaaga)\n"
+        "- Seisund ELis\n"
         "- Populatsioonitrend teistes ELi riikides (nt mõõdukalt väheneb, mõõdukalt suureneb)"
     )
 
@@ -85,6 +83,7 @@ def format_using_gpt(text):
                 response_content += content
 
     return response_content.strip()
+
 
 
 def main():
