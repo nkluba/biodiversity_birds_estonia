@@ -1,6 +1,8 @@
 import re
 import os
+from transformers import pipeline
 from openai import OpenAI
+import torch
 
 openai_api_key = os.getenv('OPENAIKEY')
 client = OpenAI(api_key=openai_api_key)
@@ -85,6 +87,34 @@ def format_using_gpt(text):
     return response_content.strip()
 
 
+def format_using_llamas(text):
+    # Construct the prompt to format the information for 'veetallaja'
+    prompt = (
+        f"Vorminda järgmine teave 'veetallaja' kohta selgel ja struktureeritud viisil:\n\n{text}\n\n"
+        "Struktuur on järgmine (KUI TEAVE PUUDUP TEKSTIS, JÄÄTA 'NA'):\n"
+        "- Elupaik\n"
+        "- Elupaiga seisund\n"
+        "- Ohud\n"
+        "- Populatsiooni muutused (nt suurenenud, vähenenud, sama tase == stabiilne)\n"
+        "- Kas rändlinnud\n"
+        "- Läbiviidud uuringud\n"
+        "- Kavandatud, kuid läbi viimata uuringud (nt programmid koos Venemaaga)\n"
+        "- Seisund ELis\n"
+        "- Populatsioonitrend teistes ELi riikides (nt mõõdukalt väheneb, mõõdukalt suureneb)"
+    )
+
+    # Initialize the text-generation pipeline
+    pipe = pipeline("text-generation", model="tartuNLP/Llammas", torch_dtype=torch.bfloat16, device_map="auto")
+
+    # Generate the output using the prompt
+    outputs = pipe(prompt, max_new_tokens=256, do_sample=True, temperature=0.6, top_k=50, top_p=0.9)
+
+    # Extract the generated text
+    response_content = outputs[0]["generated_text"]
+
+    # Return the processed text
+    return response_content.strip()
+
 
 def main():
     # Step 1: Read the text from the file
@@ -98,6 +128,7 @@ def main():
     # Step 3: Format the extracted information using ChatGPT
     if extracted_text:
         print(format_using_gpt(extracted_text))
+        #print(format_using_llamas(extracted_text))
     else:
         print("No relevant 'veetallaja' sections found in the text.")
 
