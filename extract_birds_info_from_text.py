@@ -85,10 +85,19 @@ def parse_json_to_dataframe_columns(json_data):
         return {}
 
 
+def extract_kokkuvote_section(text):
+    # Pattern to find Kokkuvõte section assuming it's a standalone section.
+    kokkuvote_pattern = re.compile(r'Kokkuvõte(.*?)\n\s*\n', re.DOTALL)
+    match = kokkuvote_pattern.search(text)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:2].fillna('')
+    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:8].fillna('')
 
     formatted_responses = []
     response_dfs = []
@@ -99,6 +108,7 @@ def main():
         kirjeldus_text = str(row.get('Kirjeldus'))
         ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
         kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
+        strategy_present = row.get('strategy_present', False)  # Assuming this is how strategy_present is stored
 
         concatenated_texts = []  # List to hold all formatted texts
 
@@ -113,15 +123,23 @@ def main():
         text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
         text = read_text_from_file(text_file_path)
 
-        # Extract relevant sections for the bird
-        bird_sections = extract_bird_sections(text, estonian_name)
-        extracted_text = "\n".join(bird_sections)
+        # Decide whether to extract Kokkuvõte section or use extract_bird_sections
+        if strategy_present:
+            kokkuvote_section = extract_kokkuvote_section(text)
+            if kokkuvote_section:
+                formatted_text = format_using_gpt(kokkuvote_section)
+                if formatted_text:
+                    concatenated_texts.append(formatted_text)
+            else:
+                # Fallback to extracting bird sections
+                bird_sections = extract_bird_sections(text, estonian_name)
+                extracted_text = "\n".join(bird_sections)
 
-        if extracted_text:
-            # Format the extracted sections
-            formatted_text = format_using_gpt(extracted_text)
-            if formatted_text:
-                concatenated_texts.append(formatted_text)
+                if extracted_text:
+                    # Format the extracted sections
+                    formatted_text = format_using_gpt(extracted_text)
+                    if formatted_text:
+                        concatenated_texts.append(formatted_text)
 
         # Combine all JSON responses into one
         combined_json = {}
@@ -154,7 +172,4 @@ if __name__ == "__main__":
     main()
 
 
-# - get response as JSON and set to columns
-# - if one of kirjeldus/ohu_kirjendus is empty, construct query to get missing values from pdf's
-# - if kirjeldus+ohu_kirjendus after first request go through columns and for NA submit new query basing on pdf
 # - check if pdf is bird-centered or not; if is, then extract only Kokkuvotte part (if present)
