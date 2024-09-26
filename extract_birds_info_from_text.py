@@ -29,17 +29,19 @@ def extract_bird_sections(text, bird_name):
 # Function to format extracted information using ChatGPT
 def format_using_gpt(text):
     prompt = (
-        f"Vorminda järgmine teave selgel ja struktureeritud viisil:\n\n{text}\n\n"
-        "Struktuur on järgmine (KUI TEAVE PUUDUP TEKSTIS, JÄÄTA 'NA'):\n"
-        "- Elupaik\n"
-        "- Elupaiga seisund\n"
-        "- Ohud\n"
-        "- Populatsiooni muutused (nt suurenenud, vähenenud, sama tase == stabiilne)\n"
-        "- Kas rändlinnud\n"
-        "- Läbiviidud uuringud\n"
-        "- Kavandatud, kuid läbi viimata uuringud (nt programmid koos Venemaaga)\n"
-        "- Seisund ELis\n"
-        "- Populatsioonitrend teistes ELi riikides (nt mõõdukalt väheneb, mõõdukalt suureneb)"
+        f"Vorminda järgmine teave JSON-struktuurina selgel ja struktureeritud viisil:\n\n{text}\n\n"
+        "Struktuur on järgmine (KUI TEAVE PUUDUB TEKSTIS, JÄÄTA 'NA'):\n"
+        "{\n"
+        '  "Elupaik": "NA",\n'
+        '  "Elupaiga seisund": "NA",\n'
+        '  "Ohud": "NA",\n'
+        '  "Populatsiooni muutused": "NA",\n'
+        '  "Kas rändlinnud": "NA",\n'
+        '  "Läbiviidud uuringud": "NA",\n'
+        '  "Kavandatud uuringud": "NA",\n'
+        '  "Seisund ELis": "NA",\n'
+        '  "Populatsioonitrend teistes ELi riikides": "NA"\n'
+        "}\n"
     )
 
     response = client.chat.completions.create(
@@ -51,15 +53,13 @@ def format_using_gpt(text):
     )
 
     json_response = response.choices[0].message.content
+    cleaned_json_response = json_response.strip().strip('```json').strip('```').strip()
 
     try:
-        response_json = json.loads(json_response)
+        response_json = json.loads(cleaned_json_response)
     except json.JSONDecodeError:
-        print("Error parsing GPT response as JSON. Got: ", json_response)
+        print("Error parsing GPT response as JSON. Got: ", cleaned_json_response)
         return None
-
-    return response_json
-
 
 def parse_json_to_dataframe_columns(json_data):
     if json_data:
@@ -113,6 +113,7 @@ def main():
         for response_dict in formatted_responses:
             # Each response is merged into the DataFrame with new columns from JSON
             response_df = pd.DataFrame(response_dict)
+            print(response_df)
             df = pd.concat([df, response_df], axis=1, ignore_index=False)
 
     # Save the DataFrame to a new CSV file
