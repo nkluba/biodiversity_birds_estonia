@@ -1,3 +1,4 @@
+import json
 import re
 import os
 import pandas as pd
@@ -41,28 +42,38 @@ def format_using_gpt(text):
         "- Populatsioonitrend teistes ELi riikides (nt mõõdukalt väheneb, mõõdukalt suureneb)"
     )
 
-    stream = client.chat.completions.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Oled abivalmis assistent, kes aitab ekstraktitud teavet vormindada."},
             {"role": "user", "content": prompt}
-        ],
-        stream=True
+        ]
     )
 
-    response_content = ""
-    for chunk in stream:
-        for choice in chunk.choices:
-            content = choice.delta.content
-            if content is not None:
-                response_content += content
+    json_response = response.choices[0].message.content
 
-    return response_content.strip()
+    try:
+        response_json = json.loads(json_response)
+    except json.JSONDecodeError:
+        print("Error parsing GPT response as JSON. Got: ", json_response)
+        return None
+
+    return response_json
+
+
+def parse_json_to_dataframe_columns(json_data):
+    if json_data:
+        # For each key/value in the JSON response, return it mapped as a column
+        return {k: [v] for k, v in json_data.items()}
+    else:
+        # If there's no JSON data, return an empty mapping
+        return {}
+
 
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:5].fillna('')
+    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:2].fillna('')
 
     # Container for formatted responses
     formatted_responses = []
@@ -94,10 +105,15 @@ def main():
                 formatted_text = "No relevant sections found."
 
         # Append the response to the list
-        formatted_responses.append(formatted_text)
+        json_columns = parse_json_to_dataframe_columns(formatted_text)
+        formatted_responses.append(json_columns)
 
-    # Insert the formatted responses into a new column in the DataFrame
-    df['Formatted Response'] = formatted_responses
+    if formatted_responses:
+        # Flatten list of parsed responses into DataFrame-compatible rows
+        for response_dict in formatted_responses:
+            # Each response is merged into the DataFrame with new columns from JSON
+            response_df = pd.DataFrame(response_dict)
+            df = pd.concat([df, response_df], axis=1, ignore_index=False)
 
     # Save the DataFrame to a new CSV file
     df.to_csv('st5_relevant_pdf_reports_with_responses.csv', index=False)
