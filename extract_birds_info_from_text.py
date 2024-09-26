@@ -92,27 +92,40 @@ def main():
         ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
         kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
 
-        strategy_file = row['strategy_file']
+        concatenated_texts = []  # List to hold all formatted texts
+
         if not kirjeldus.isspace():
             # Format the combined 'Kirjeldus' and 'Ohutegurite kirjeldus'
             formatted_text = format_using_gpt(kirjeldus)
-        else:
-            # Read from the text file converted from PDF
-            text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
-            text = read_text_from_file(text_file_path)
+            if formatted_text:
+                concatenated_texts.append(formatted_text)
 
-            # Extract relevant sections for the bird
-            bird_sections = extract_bird_sections(text, estonian_name)
-            extracted_text = "\n".join(bird_sections)
+        # Read from the text file converted from PDF
+        strategy_file = row['strategy_file']
+        text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
+        text = read_text_from_file(text_file_path)
 
-            if extracted_text:
-                # Format the extracted sections
-                formatted_text = format_using_gpt(extracted_text)
-            else:
-                formatted_text = "No relevant sections found."
+        # Extract relevant sections for the bird
+        bird_sections = extract_bird_sections(text, estonian_name)
+        extracted_text = "\n".join(bird_sections)
+
+        if extracted_text:
+            # Format the extracted sections
+            formatted_text = format_using_gpt(extracted_text)
+            if formatted_text:
+                concatenated_texts.append(formatted_text)
+
+        # Combine all JSON responses into one
+        combined_json = {}
+        for response_json in concatenated_texts:
+            for key, value in response_json.items():
+                if key in combined_json and combined_json[key] != "NA":
+                    combined_json[key] += f" / {value}" if value != "NA" else ""
+                else:
+                    combined_json[key] = value
 
         # Convert JSON response into DataFrame-compatible format
-        json_columns = parse_json_to_dataframe_columns(formatted_text)
+        json_columns = parse_json_to_dataframe_columns(combined_json)
         formatted_responses.append(json_columns)
 
         # Store the response DataFrame for later concatenation
@@ -126,7 +139,7 @@ def main():
         # Concatenate with the original DataFrame
         df = pd.concat([df, all_responses_df], axis=1)
 
-        # Save the DataFrame to a new CSV file
+    # Save the DataFrame to a new CSV file
     df.to_csv('st5_relevant_pdf_reports_with_responses.csv', index=False)
 
 if __name__ == "__main__":
