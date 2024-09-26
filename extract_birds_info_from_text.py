@@ -82,11 +82,11 @@ def main():
     # Load the CSV file
     df = pd.read_csv('st5_relevant_pdf_reports.csv')[:2].fillna('')
 
-    # Container for formatted responses
     formatted_responses = []
+    response_dfs = []
 
     # Process each row in the DataFrame
-    for _, row in df.iterrows():
+    for index, row in df.iterrows():
         estonian_name = row['Estonian Name']
         kirjeldus_text = str(row.get('Kirjeldus'))
         ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
@@ -111,19 +111,22 @@ def main():
             else:
                 formatted_text = "No relevant sections found."
 
-        # Append the response to the list
+        # Convert JSON response into DataFrame-compatible format
         json_columns = parse_json_to_dataframe_columns(formatted_text)
         formatted_responses.append(json_columns)
 
-    if formatted_responses:
-        # Flatten list of parsed responses into DataFrame-compatible rows
-        for response_dict in formatted_responses:
-            # Each response is merged into the DataFrame with new columns from JSON
-            response_df = pd.DataFrame(response_dict)
-            print(response_df)
-            df = pd.concat([df, response_df], axis=1, ignore_index=False)
+        # Store the response DataFrame for later concatenation
+        response_df = pd.DataFrame(json_columns, index=[index])
+        response_dfs.append(response_df)
 
-    # Save the DataFrame to a new CSV file
+    if response_dfs:
+        # Concatenate all response DataFrames before inserting them into the main DataFrame
+        all_responses_df = pd.concat(response_dfs, axis=0)
+
+        # Concatenate with the original DataFrame
+        df = pd.concat([df, all_responses_df], axis=1)
+
+        # Save the DataFrame to a new CSV file
     df.to_csv('st5_relevant_pdf_reports_with_responses.csv', index=False)
 
 if __name__ == "__main__":
