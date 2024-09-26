@@ -30,7 +30,7 @@ def extract_bird_sections(text, bird_name):
 def format_using_gpt(text):
     prompt = (
         f"Vorminda järgmine teave JSON-struktuurina selgel ja struktureeritud viisil:\n\n{text}\n\n"
-        "Struktuur on järgmine (KUI TEAVE PUUDUB TEKSTIS, JÄÄTA 'NA'):\n"
+        "Struktuur on järgmine (KUI TEAVE PUUDUB TEKSTIS, JÄÄTA 'NA'; kui on antud mitu vastust, lisage need ühele reale, eraldades need komadega):\n"
         "{\n"
         '  "Elupaik": "NA",\n'
         '  "Elupaiga seisund": "NA",\n'
@@ -53,20 +53,28 @@ def format_using_gpt(text):
     )
 
     json_response = response.choices[0].message.content
-    match = re.search(r'```json\n([\s\S]*?)\n```', json_response)
-    if match:
-        json_text = match.group(1)
-    else:
-        print("Error: No JSON found in response. Got: ", json_response)
-        return None
 
+    # Attempt to parse the response content directly as JSON
     try:
-        response_json = json.loads(json_text)
+        response_json = json.loads(json_response)
+        return response_json
     except json.JSONDecodeError:
-        print("Error parsing JSON: ", json_text)
-        return None
+        # If direct parsing fails, attempt to extract JSON within triple backticks using regex
+        match = re.search(r'```json\n([\s\S]*?)\n```', json_response)
+        if match:
+            json_text = match.group(1)
+            try:
+                # Try parsing the extracted text as JSON
+                response_json = json.loads(json_text)
+                return response_json
+            except json.JSONDecodeError:
+                print("Error parsing JSON from extracted block: ", json_text)
+                return None
+        else:
+            print("Error: No JSON found in response. Got: ", json_response)
+            return None
 
-    return response_json
+    return None
 
 def parse_json_to_dataframe_columns(json_data):
     if json_data:
