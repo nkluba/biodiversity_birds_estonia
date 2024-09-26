@@ -53,13 +53,20 @@ def format_using_gpt(text):
     )
 
     json_response = response.choices[0].message.content
-    cleaned_json_response = json_response.strip().strip('```json').strip('```').strip()
+    match = re.search(r'```json\n([\s\S]*?)\n```', json_response)
+    if match:
+        json_text = match.group(1)
+    else:
+        print("Error: No JSON found in response. Got: ", json_response)
+        return None
 
     try:
-        response_json = json.loads(cleaned_json_response)
+        response_json = json.loads(json_text)
     except json.JSONDecodeError:
-        print("Error parsing GPT response as JSON. Got: ", cleaned_json_response)
+        print("Error parsing JSON: ", json_text)
         return None
+
+    return response_json
 
 def parse_json_to_dataframe_columns(json_data):
     if json_data:
