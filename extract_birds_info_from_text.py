@@ -26,26 +26,40 @@ def extract_bird_sections(text, bird_name):
     cleaned_matches = [re.sub(r'\s+', ' ', match).strip() for match in matches]
     return cleaned_matches
 
+
+def transform_json_response(response_json):
+    # Ensure values are all strings and lists are joined into a single string
+    for key, value in response_json.items():
+        if isinstance(value, list):
+            # Join list items with commas
+            response_json[key] = ', '.join(value)
+        elif not isinstance(value, str):
+            # Convert any non-string values (unexpected) to a string
+            response_json[key] = str(value)
+    return response_json
+
+
 # Function to format extracted information using ChatGPT
 def format_using_gpt(text):
     prompt = (
         f"Vorminda järgmine teave JSON-struktuurina selgel ja struktureeritud viisil:\n\n{text}\n\n"
-        "Struktuur on järgmine (KUI TEAVE PUUDUB TEKSTIS, JÄÄTA 'NA'; kui on antud mitu vastust, lisage need ühele reale, eraldades need komadega):\n"
+        "Struktuur on järgmine (KUI TEAVE PUUDUB TEKSTIS, JÄÄTA 'NA'; kui on antud mitu vastust, "
+        "liituge need üheks sõneks ja eraldage need komadega):\n"
         "{\n"
         '  "Elupaik": "NA",\n'
         '  "Elupaiga seisund": "NA",\n'
-        '  "Ohud": "NA",\n'
-        '  "Populatsiooni muutused": "NA",\n'
+        '  "Ohud": "NA",\n'  # Here, list items will be joined by commas
+        '  "Populatsiooni muutused Eestis": "NA",\n'  # Join the details by commas
         '  "Kas rändlinnud": "NA",\n'
         '  "Läbiviidud uuringud": "NA",\n'
         '  "Kavandatud uuringud": "NA",\n'
         '  "Seisund ELis": "NA",\n'
-        '  "Populatsioonitrend teistes ELi riikides": "NA"\n'
+        '  "Populatsiooni muutused teistes ELi riikides": "NA"\n'  # Join by commas
         "}\n"
     )
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "Oled abivalmis assistent, kes aitab ekstraktitud teavet vormindada."},
             {"role": "user", "content": prompt}
@@ -57,7 +71,8 @@ def format_using_gpt(text):
     # Attempt to parse the response content directly as JSON
     try:
         response_json = json.loads(json_response)
-        return response_json
+        formatted_response = transform_json_response(response_json)
+        return formatted_response
     except json.JSONDecodeError:
         # If direct parsing fails, attempt to extract JSON within triple backticks using regex
         match = re.search(r'```json\n([\s\S]*?)\n```', json_response)
@@ -97,7 +112,7 @@ def extract_kokkuvote_section(text):
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:8].fillna('')
+    df = pd.read_csv('st5_relevant_pdf_reports.csv').fillna('')
 
     formatted_responses = []
     response_dfs = []
@@ -145,7 +160,11 @@ def main():
         combined_json = {}
         for response_json in concatenated_texts:
             for key, value in response_json.items():
-                if key in combined_json and combined_json[key] != "NA":
+                if key in combined_json:
+                    # If already present, make sure it is a string before concatenating
+                    combined_json[key] = str(combined_json[key])
+                    print(
+                        f"Key: {key}, Value: {value}, Current combined_json[key]: {combined_json.get(key, 'Not set')}")
                     combined_json[key] += f" / {value}" if value != "NA" else ""
                 else:
                     combined_json[key] = value
@@ -161,7 +180,6 @@ def main():
     if response_dfs:
         # Concatenate all response DataFrames before inserting them into the main DataFrame
         all_responses_df = pd.concat(response_dfs, axis=0)
-
         # Concatenate with the original DataFrame
         df = pd.concat([df, all_responses_df], axis=1)
 
