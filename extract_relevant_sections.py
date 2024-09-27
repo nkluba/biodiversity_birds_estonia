@@ -1,7 +1,7 @@
-import csv
 import os
 import re
 import json
+import pandas as pd
 from openai import OpenAI
 
 # Initialize OpenAI client
@@ -17,11 +17,9 @@ def extract_table_of_contents(text):
     if start_index == -1:
         return None
     end_index = text.find("\n\n", start_index)
-    toc = text[start_index:end_index].strip() if end_index != -1 else text[start_index:].strip()
-    return toc
+    return text[start_index:end_index].strip() if end_index != -1 else text[start_index:].strip()
 
 def format_using_gpt(toc, bird_name):
-    # Provide a detailed prompt with example JSON to guide the GPT model
     prompt = (
         f"Kasutades järgnevat sisukorda:\n\n{toc}\n\n"
         "Palun lahenda selle põhjal ja tagasta JSON formaadis, "
@@ -71,7 +69,6 @@ def format_using_gpt(toc, bird_name):
     )
 
     json_response = response.choices[0].message.content
-    print(json_response)
     return preprocess_json_response(json_response)
 
 def preprocess_json_response(json_response):
@@ -86,10 +83,10 @@ def preprocess_json_response(json_response):
                 response_json = json.loads(json_text)
                 return transform_json_response(response_json)
             except json.JSONDecodeError:
-                print("Error parsing JSON from extracted block: ", json_text)
+                print("Error parsing JSON from extracted block:", json_text)
                 return None
         else:
-            print("Error: No JSON found in response. Got: ", json_response)
+            print("Error: No JSON found in response. Got:", json_response)
             return None
 
 def transform_json_response(response_json):
@@ -107,40 +104,33 @@ def transform_json_response(response_json):
 
     return transformed_data
 
-def save_to_csv(data, output_file="output.csv"):
-    if not data:
-        return
-    fieldnames = data[0].keys()
-    with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for entry in data:
-            writer.writerow(entry)
-
 def main():
     os.chdir('/home/teks/PycharmProjects/biodiversity')
     input_csv = 'failed.csv'
+    df = pd.read_csv(input_csv)
+
     results = []
 
-    with open(input_csv, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            strategy_file = row['strategy_file']
-            bird_name = row['Estonian Name']
-            bird_id = bird_name[:-3]
+    for index, row in df.iterrows():
+        strategy_file = row['strategy_file']
+        bird_name = row['Estonian Name']
+        bird_id = bird_name[:-3]
 
-            text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
-            text = read_text_from_file(text_file_path)
-            toc = extract_table_of_contents(text)
+        text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
+        text = read_text_from_file(text_file_path)
+        toc = extract_table_of_contents(text)
 
-            if toc:
-                if (bird_id.lower() in strategy_file.lower() or (bird_id.lower() in toc.lower())):
-                    json_results = format_using_gpt(toc, bird_name)
-                    if json_results:
-                        row.update(json_results)
-                        results.append(row)
+        if toc:
+            if bird_id.lower() in strategy_file.lower() or bird_id.lower() in toc.lower():
+                json_results = format_using_gpt(toc, bird_name)
+                if json_results:
+                    for key, value in json_results.items():
+                        row[key] = value
+                    results.append(row)
 
-    save_to_csv(results)
+    result_df = pd.DataFrame(results)
+    result_df.to_csv("output.csv", index=False, encoding='utf-8')
+
 
 if __name__ == '__main__':
     main()
