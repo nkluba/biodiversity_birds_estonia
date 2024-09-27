@@ -112,7 +112,7 @@ def extract_kokkuvote_section(text):
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st5_relevant_pdf_reports.csv').fillna('')
+    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:10].fillna('')
 
     formatted_responses = []
     response_dfs = []
@@ -141,6 +141,7 @@ def main():
         # Decide whether to extract Kokkuvõte section or use extract_bird_sections
         if strategy_present:
             kokkuvote_section = extract_kokkuvote_section(text)
+            print(kokkuvote_section)
             if kokkuvote_section:
                 formatted_text = format_using_gpt(kokkuvote_section)
                 if formatted_text:

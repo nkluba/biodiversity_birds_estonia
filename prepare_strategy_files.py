@@ -61,4 +61,4 @@ def process_pdfs_in_csv(filename):
 
 
 # Run the function with the filename
-process_pdfs_in_csv('st4_pdf_gathered.csv')
+#process_pdfs_in_csv('st4_pdf_gathered.csv')
