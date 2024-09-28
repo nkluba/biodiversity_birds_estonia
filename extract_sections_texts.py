@@ -1,4 +1,5 @@
 import os
+import re
 import pandas as pd
 
 
@@ -26,15 +27,46 @@ def save_to_csv(df, output_file):
 
 ### Text Processing Functions ###
 
-def extract_table_of_contents(text):
+def extract_full_table_of_contents(text):
     """
-    Extracts the table of contents (sisukord) from the provided text.
+    Extracts the full Table of Contents (Sisukord) from the provided text,
+    handling multi-page layouts.
     """
+    # 1. Search for the starting point of Sisukord
     start_index = text.find("Sisukord")
     if start_index == -1:
         return None
-    end_index = text.find("\n\n", start_index)  # Assuming '\n\n' indicates the end of ToC
-    return text[start_index:end_index].strip() if end_index != -1 else text[start_index:].strip()
+
+    # 2. Identify some common markers to indicate the end of the Table of Contents
+    toc_end_markers = [
+        r"\.\s*\d+",  # Ending with page numbers like "2", "6"
+        r"Liikide bioloogia",  # First section in the ToC
+        r"\f"  # Page breaks
+    ]
+
+    toc_text = ""
+    current_index = start_index
+
+    # 3. Iterating through text looking for continuation
+    while current_index < len(text):
+        new_page = text.find("\f", current_index)  # Look for page breaks
+        if new_page == -1:
+            toc_chunk = text[current_index:]  # No more pages, grab to the end
+        else:
+            toc_chunk = text[current_index:new_page]  # Text before page break
+
+        toc_text += toc_chunk
+
+        # Stop if another marker like a section start (Liikide bioloogia, etc.) is found
+        if any(re.search(marker, toc_chunk) for marker in toc_end_markers):
+            break
+
+        # Move to the next page
+        current_index = new_page + 1 if new_page != -1 else len(text)
+
+    # Clean up and return captured ToC
+    print(toc_text)
+    return toc_text.strip()
 
 
 def find_section_in_toc(toc, section_name):
@@ -54,7 +86,7 @@ def extract_text_between_sections(text, start_section, end_section=None):
     """
     start_index = text.find(start_section)
     if start_index == -1:
-        return None  # Section not found
+        return None
 
     if end_section:
         end_index = text.find(end_section, start_index)
@@ -113,11 +145,10 @@ def process_row(row, strategy_file_path):
     if text is None:
         return None
 
-    # Extract Table of Contents
-    toc = extract_table_of_contents(text)
-    print(toc)
+    # Extract full Table of Contents
+    toc = extract_full_table_of_contents(text)
     if not toc:
-        print(f"Sisukord not found in the document for {strategy_file_path}")
+        print(f"Sisukord not found for {strategy_file_path}.")
         return None
 
     # Extract text for the sections
