@@ -185,9 +185,9 @@ def extract_text_for_all_sections(client, text_content, sections):
 
     prompt = (
         f"Selles tekstis:\n\n{text_content}\n\n"
-        f"Palun valige KOGU tekst järgmistest lõikudest:\n\n{sections_prompt}"
-        "ja tagastage JSON-vormingus, kus igale parameetrile vastatakse tekstiga õigetest lõikudest."
-        "Kui parameetrile vastab mitu partitsiooni, valige neist kõigist tekst ja ühendage need märgiga „/“ üheks ühiseks."
+        f"Palun valige KÕIK tekstid järgmistest lõikudest:\n\n{sections_prompt}"
+        "ja tagastage JSON-vormingus, kus igale parameetrile vastatakse TÄIELIKE lõikudena vastavatest sektsioonidest."
+        "Kui parameetrile vastab mitu lõiku, valige neist lõikude KOGU TEKST ja ühendage need märgiga „/“ üheks ühiseks."
     )
 
     json_response = client.chat.completions.create(
