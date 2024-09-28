@@ -132,7 +132,13 @@ def normalize_and_clean_line(line):
     return line
 
 
-def find_section_in_toc(toc, section_name):
+def normalize_toc(toc):
+    lines = toc.splitlines()
+    normalized_lines = [normalize_and_clean_line(line) for line in lines]
+    return normalized_lines
+
+
+def find_section_in_toc(lines, section_name):
     """
     Finds the location of a section in the Table of Contents (ToC) and returns its position in the text.
     We normalize both the ToC lines and the section name for a cleaner match
@@ -141,13 +147,10 @@ def find_section_in_toc(toc, section_name):
     # Clean and normalize the section name to be searched
     cleaned_section_name = normalize_and_clean_line(section_name)
 
-    lines = toc.splitlines()
     # Iterate over ToC lines and try to find a match with cleaned section name
     for i, line in enumerate(lines):
-        cleaned_line = normalize_and_clean_line(line)
-        if cleaned_section_name.replace('.', '') in cleaned_line.replace('.', ''):
-            print(cleaned_section_name, cleaned_line)
-            return i, cleaned_line
+        if cleaned_section_name.replace('.', '') in line.replace('.', ''):
+            return i, line
 
     # If no match found, return None, None indicating failure
     return None, None
@@ -184,28 +187,26 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
         # Split section names by ', ' to handle cases where multiple sections are provided in one line
         individual_sections = [s.strip() for s in section.split(',')]
 
+        toc_sections_list = normalize_toc(toc)
+
         for j, individual_section in enumerate(individual_sections):
             # Find the current individual section in the ToC
-            _, start_section_line = find_section_in_toc(toc, individual_section)
+            section_idx, start_section_line = find_section_in_toc(toc_sections_list, individual_section)
             if not start_section_line:
                 print(f"Section '{individual_section}' not found in Table of Contents.")
                 continue
 
             # Check for the next section to mark the end of this section's extraction
             # If it's the last section, there's no next section
-            if j + 1 < len(individual_sections):
-                # Look for the next section in case it's part of the same line
-                next_section_line = find_section_in_toc(toc, individual_sections[j + 1])[1]
-            elif i + 1 < len(sections):
-                # If we reached the end of the current grouped sections, move to the next section in the main list
-                next_section_line = find_section_in_toc(toc, sections[i + 1])[1]
+            if section_idx + 1 <= len(toc_sections_list):
+                next_section_line = toc_sections_list[section_idx + 1]
+                print(start_section_line, next_section_line)
             else:
                 # If there's no next section (if this is the last section), set it to None
                 next_section_line = None
 
             removed_toc_text = "\n".join(text.splitlines()[:toc_start_line-1] + text.splitlines()[toc_end_line:])
             # Extract the relevant portion of the text between the current section and the next section
-            #print(start_section_line, next_section_line)
             extracted_chunk = extract_text_between_sections(removed_toc_text, start_section_line, next_section_line)
             if extracted_chunk:
                 extracted_text.append(extracted_chunk)
