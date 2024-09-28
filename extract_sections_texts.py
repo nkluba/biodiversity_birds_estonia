@@ -219,16 +219,17 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
 def process_row(row, strategy_file_path):
     """
     Processes a single row of the CSV to extract relevant text sections from the corresponding strategy file.
+    Concatenates extracted texts for each section list specified in the row.
     """
-    sections = [
-        row['Elupaik'],
-        row['Elupaiga seisund'],
-        row['Ohud'],
-        row['Populatsiooni muutused Eestis'],
-        row['Uuringud'],
-        row['Seisund ELis'],
-        row['Kokkuvõte']
-    ]
+    sections_dict = {
+        'Elupaik': row['Elupaik'],
+        'Elupaiga seisund': row['Elupaiga seisund'],
+        'Ohud': row['Ohud'],
+        'Populatsiooni muutused Eestis': row['Populatsiooni muutused Eestis'],
+        'Uuringud': row['Uuringud'],
+        'Seisund ELis': row['Seisund ELis'],
+        'Kokkuvõte': row['Kokkuvõte']
+    }
 
     # Read text for the current strategy
     text = read_text_from_file(strategy_file_path)
@@ -243,11 +244,20 @@ def process_row(row, strategy_file_path):
         return None
 
     # Extract text for the sections
-    extracted_text = extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
+    extracted_text = extract_text_for_sections(text, toc, sections_dict.values(), toc_start_line, toc_end_line)
 
-    print(extracted_text)
+    processed_data = {}
 
-    return extracted_text
+    # Concatenate texts for each required section and store them in the processed_data dictionary
+    for section_name, section_text in sections_dict.items():
+        individual_sections = [s.strip() for s in section_text.split(',')]
+        concatenated_text = "\n".join(extracted_text[s] for s in individual_sections if s in extracted_text)
+
+        # Store concatenated text in a new key such as 'Elupaik_text'
+        processed_data[f"{section_name}_text"] = concatenated_text
+
+    print(processed_data)
+    return processed_data
 
 
 def process_csv(input_csv, strategy_materials_folder, output_csv):
@@ -257,20 +267,24 @@ def process_csv(input_csv, strategy_materials_folder, output_csv):
     # Load the CSV file
     df = pd.read_csv(input_csv)
 
+    # Iterate over each row in the DataFrame
     for index, row in df.iterrows():
         # Extract the strategy file name and path
         strategy_file = row['strategy_file']
         strategy_file_path = os.path.join(strategy_materials_folder, strategy_file.replace('.pdf', '_cleaned.txt'))
 
-        # Process the row
+        # Process the row to obtain extracted text
         extracted_text = process_row(row, strategy_file_path)
 
         if extracted_text:
-            # Store the extracted text into the DataFrame
-            df.at[index, 'Extracted_Text'] = extracted_text
+            # Update the DataFrame with the extracted text for the current row
+            for key, value in extracted_text.items():
+                df.at[index, key] = value
 
-    # Save the updated DataFrame to a new CSV file
-    save_to_csv(df, output_csv)
+    # Save the updated DataFrame to the output CSV file
+    df.to_csv(output_csv, index=False)
+
+    print(f"Updated CSV file has been saved to {output_csv}")
 
 
 ### Main Function ###
