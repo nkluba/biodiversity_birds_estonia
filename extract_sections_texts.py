@@ -179,9 +179,9 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
     """
     Loops through the sections in the ToC and extracts the text for each section.
     Handles cases where multiple sections are provided in one line,
-    splitting them by ', ' and then concatenating their extracted texts.
+    splitting them by ', ' and then collecting their extracted texts in a dictionary.
     """
-    extracted_text = []
+    extracted_text = {}
 
     for i, section in enumerate(sections):
         # Split section names by ', ' to handle cases where multiple sections are provided in one line
@@ -198,9 +198,8 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
 
             # Check for the next section to mark the end of this section's extraction
             # If it's the last section, there's no next section
-            if section_idx + 1 <= len(toc_sections_list):
+            if section_idx + 1 < len(toc_sections_list):
                 next_section_line = toc_sections_list[section_idx + 1]
-                print(start_section_line, next_section_line)
             else:
                 # If there's no next section (if this is the last section), set it to None
                 next_section_line = None
@@ -209,10 +208,10 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
             # Extract the relevant portion of the text between the current section and the next section
             extracted_chunk = extract_text_between_sections(removed_toc_text, start_section_line, next_section_line)
             if extracted_chunk:
-                extracted_text.append(extracted_chunk)
+                # Add the extracted chunk to the dictionary with the section as the key
+                extracted_text[individual_section] = extracted_chunk
 
-    # Return the combined extracted texts, with sections joined by two newlines for readability
-    return "\n\n".join(extracted_text)
+    return extracted_text
 
 
 ### CSV Processing Functions ###
@@ -245,6 +244,8 @@ def process_row(row, strategy_file_path):
 
     # Extract text for the sections
     extracted_text = extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
+
+    print(extracted_text)
 
     return extracted_text
 
