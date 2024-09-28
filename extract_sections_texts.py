@@ -97,8 +97,7 @@ def normalize_and_clean_line(line):
     line = line.strip()
 
     # Optionally remove trailing dots (common after section numbers like 2.5.1.1.)
-    line = line.rstrip('.')
-    print(line)
+    line = line.rstrip('.').replace('.', '').replace(' ', '')
     return line
 
 
@@ -115,7 +114,6 @@ def find_section_in_toc(toc, section_name):
     # Iterate over ToC lines and try to find a match with cleaned section name
     for i, line in enumerate(lines):
         cleaned_line = normalize_and_clean_line(line)
-        print(cleaned_line)
         # Use fuzzy comparison to handle minimal differences
         if difflib.SequenceMatcher(None, cleaned_section_name, cleaned_line).ratio() > 0.9:
             # If high similarity (above 90%) return it as a match
