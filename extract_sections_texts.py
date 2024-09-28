@@ -30,43 +30,59 @@ def save_to_csv(df, output_file):
 def extract_full_table_of_contents(text):
     """
     Extracts the full Table of Contents (Sisukord) from the provided text,
-    handling multi-page layouts.
+    including multi-page layouts and handling irregular breaks.
     """
-    # 1. Search for the starting point of Sisukord
-    start_index = text.find("Sisukord")
-    if start_index == -1:
-        return None
+    # Locate the start of the Sisukord section using "Sisukord" as the trigger
+    toc_start_index = text.find("Sisukord")
+    if toc_start_index == -1:
+        return None  # Sisukord not found
 
-    # 2. Identify some common markers to indicate the end of the Table of Contents
-    toc_end_markers = [
-        r"\.\s*\d+",  # Ending with page numbers like "2", "6"
-        r"Liikide bioloogia",  # First section in the ToC
-        r"\f"  # Page breaks
-    ]
-
+    current_index = toc_start_index
     toc_text = ""
-    current_index = start_index
 
-    # 3. Iterating through text looking for continuation
-    while current_index < len(text):
-        new_page = text.find("\f", current_index)  # Look for page breaks
-        if new_page == -1:
-            toc_chunk = text[current_index:]  # No more pages, grab to the end
+    # Regular expression to look for ToC lines ending in dots followed by page numbers
+    toc_line_pattern = re.compile(r"\.{5,}\s*\d+$")
+
+    # Track how many lines without '....' separators we've seen in a row
+    lines_without_dots = 0
+    toc_continues = True
+
+    # Loop over the text in blocks
+    while toc_continues and current_index < len(text):
+        # Identify the next form feed (page break) or take rest of the text
+        page_break_index = text.find("\f", current_index)
+        if page_break_index == -1:
+            current_chunk = text[current_index:]
+            toc_continues = False
         else:
-            toc_chunk = text[current_index:new_page]  # Text before page break
+            current_chunk = text[current_index:page_break_index + 1]
+            current_index = page_break_index + 1  # Move cursor to after page break
 
-        toc_text += toc_chunk
+        toc_lines = current_chunk.splitlines()
+        capture_chunk = ""
 
-        # Stop if another marker like a section start (Liikide bioloogia, etc.) is found
-        if any(re.search(marker, toc_chunk) for marker in toc_end_markers):
-            break
+        # Add lines to ToC and stop when consecutive non-ToC lines grow beyond threshold
+        for line in toc_lines:
+            # Skip completely empty lines
+            clean_line = line.strip()
+            if not clean_line:
+                continue
 
-        # Move to the next page
-        current_index = new_page + 1 if new_page != -1 else len(text)
+            if toc_line_pattern.search(line):
+                # We have a valid ToC line (ending in '....page#')
+                capture_chunk += line + "\n"
+                lines_without_dots = 0  # Reset counter when a valid line is found
+            else:
+                # Check if we've gone too far from the ToC part
+                lines_without_dots += 1
+                if lines_without_dots > 10:  # Once 10 consecutive lines without dots occur, we can stop
+                    toc_continues = False
+                    break
 
-    # Clean up and return captured ToC
+        toc_text += capture_chunk
+
     print(toc_text)
-    return toc_text.strip()
+    return toc_text.strip()  # Clean up and return the collected ToC
 
 
 def find_section_in_toc(toc, section_name):
