@@ -61,7 +61,7 @@ def format_using_gpt(toc, bird_name):
     )
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Oled abivalmis assistent, kes aitab teksti analüüsida ja struktuurida."},
             {"role": "user", "content": prompt}
@@ -69,7 +69,8 @@ def format_using_gpt(toc, bird_name):
     )
 
     json_response = response.choices[0].message.content
-    return preprocess_json_response(json_response)
+    processed_json_response = preprocess_json_response(json_response)
+    return transform_json_response(processed_json_response)
 
 def preprocess_json_response(json_response):
     try:
@@ -81,7 +82,7 @@ def preprocess_json_response(json_response):
             json_text = match.group(1)
             try:
                 response_json = json.loads(json_text)
-                return transform_json_response(response_json)
+                return response_json
             except json.JSONDecodeError:
                 print("Error parsing JSON from extracted block:", json_text)
                 return None
@@ -132,5 +133,78 @@ def main():
     result_df.to_csv("output.csv", index=False, encoding='utf-8')
 
 
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()
+
+
+def extract_sections(df, client):
+    results_list = []
+
+    # Iterate through each row in the dataframe
+    for index, row in df.iterrows():
+        result = {
+            "Elupaik": "",
+            "Elupaiga seisund": "",
+            "Ohud": "",
+            "Populatsiooni muutused Eestis": "",
+            "Uuringud": "",
+            "Seisund ELis": "",
+            "Kokkuvõte": ""
+        }
+
+        strategy_file = row['strategy_file']
+        text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
+        text_content = read_text_from_file(text_file_path)
+        # Form full set of sections and their corresponding text references in one prompt
+        sections_to_extract = {
+            "Elupaik": row["Elupaik"],
+            "Elupaiga seisund": row["Elupaiga seisund"],
+            "Ohud": row["Ohud"],
+            "Populatsiooni muutused Eestis": row["Populatsiooni muutused Eestis"],
+            "Uuringud": row["Uuringud"],
+            "Seisund ELis": row["Seisund ELis"],
+            "Kokkuvõte": row["Kokkuvõte"]
+        }
+
+        # Filter out empty/NaN sections
+        sections_to_extract = {k: v for k, v in sections_to_extract.items() if pd.notna(v)}
+
+        if text_content and sections_to_extract:
+            # Single call to extract all sections at once
+            extracted_sections = extract_text_for_all_sections(client, text_content, sections_to_extract)
+            result.update(extracted_sections)
+
+        results_list.append(result)
+
+    return results_list
+
+
+def extract_text_for_all_sections(client, text_content, sections):
+    # Construct prompt to request all sections at once
+    sections_prompt = "\n".join([f"{section}: {part}" for section, part in sections.items()])
+
+    prompt = (
+        f"Selles tekstis:\n\n{text_content}\n\n"
+        f"Palun valige KOGU tekst järgmistest lõikudest:\n\n{sections_prompt}"
+        "ja tagastage JSON-vormingus, kus igale parameetrile vastatakse tekstiga õigetest lõikudest."
+        "Kui parameetrile vastab mitu partitsiooni, valige neist kõigist tekst ja ühendage need märgiga „/“ üheks ühiseks."
+    )
+
+    json_response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Oled abivalmis assistent, kes aitab välja valida KOGU teksti antud tekstilõikudest."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    # Parse the response. Assuming we get a JSON-like dictionary for each section.
+    processed_json_response = preprocess_json_response(json_response)
+    print(processed_json_response)
+    return processed_json_response
+
+
+df = pd.read_csv("output.csv")
+
+sections_json = extract_sections(df, client)
+print(sections_json)
