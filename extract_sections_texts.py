@@ -1,3 +1,4 @@
+import difflib
 import os
 import re
 import pandas as pd
@@ -81,18 +82,46 @@ def extract_full_table_of_contents(text):
 
         toc_text += capture_chunk
 
-    print(toc_text)
     return toc_text.strip()  # Clean up and return the collected ToC
+
+
+def normalize_and_clean_line(line):
+    """
+    Cleans up a line by removing excess whitespace, normalizing multiple spaces to one,
+    and stripping any unnecessary trailing dots or punctuation.
+    """
+    # Normalize multiple spaces/tabs down to a single space
+    line = re.sub(r'\s+', ' ', line)
+
+    # Trim leading and trailing spaces
+    line = line.strip()
+
+    # Optionally remove trailing dots (common after section numbers like 2.5.1.1.)
+    line = line.rstrip('.')
+    print(line)
+    return line
 
 
 def find_section_in_toc(toc, section_name):
     """
     Finds the location of a section in the Table of Contents (ToC) and returns its position in the text.
+    We normalize both the ToC lines and the section name for a cleaner match
+    and use fuzzy matching to match even in case of small differences.
     """
+    # Clean and normalize the section name to be searched
+    cleaned_section_name = normalize_and_clean_line(section_name)
+
     lines = toc.splitlines()
+    # Iterate over ToC lines and try to find a match with cleaned section name
     for i, line in enumerate(lines):
-        if section_name in line:
+        cleaned_line = normalize_and_clean_line(line)
+        print(cleaned_line)
+        # Use fuzzy comparison to handle minimal differences
+        if difflib.SequenceMatcher(None, cleaned_section_name, cleaned_line).ratio() > 0.9:
+            # If high similarity (above 90%) return it as a match
             return i, line
+
+    # If no match found, return None, None indicating failure
     return None, None
 
 
