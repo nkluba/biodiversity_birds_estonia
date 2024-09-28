@@ -3,6 +3,7 @@ import re
 import json
 import pandas as pd
 from openai import OpenAI
+from extract_sections_texts import extract_full_table_of_contents
 
 # Initialize OpenAI client
 openai_api_key = os.getenv('OPENAIKEY')
@@ -12,53 +13,90 @@ def read_text_from_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
-def extract_table_of_contents(text):
-    start_index = text.find("Sisukord")
-    if start_index == -1:
-        return None
-    end_index = text.find("\n\n", start_index)
-    return text[start_index:end_index].strip() if end_index != -1 else text[start_index:].strip()
-
-def format_using_gpt(toc, bird_name):
-    prompt = (
-        f"Kasutades järgnevat sisukorda:\n\n{toc}\n\n"
-        "Palun lahenda selle põhjal ja tagasta JSON formaadis, "
-        f"mis osad on seotud {bird_name} linnuga ja järgmiste teemadega:\n"
-        "'Elupaik', 'Elupaiga seisund', 'Ohud', "
-        "'Populatsiooni muutused Eestis', 'Uuringud', 'Seisund ELis', 'Kokkuvõte'.\n\n"
-        "Struktuur peaks olla nagu nii:\n"
-        "```json\n"
-        "{\n"
-        f"   \"Lind\": [\n"
-        "      {\n"
-        "         \"Elupaik\": [\"8.2.1.1 Elupaiganõudlus\"]\n"
-        "      },\n"
-        "      {\n"
-        "         \"Elupaiga seisund\": [\"8.2.1.1 Elupaiganõudlus\"]\n"
-        "      },\n"
-        "      {\n"
-        "         \"Ohud\": [\"8.2.3 Kaitsestaatus ja senise kaitse tõhususe analüüs\"]\n"
-        "      },\n"
-        "      {\n"
-        "         \"Populatsiooni muutused Eestis\": [\"8.2.2.2 Levik ja arvukus Eestis\"]\n"
-        "      },\n"
-        "      {\n"
-        "         \"Uuringud\": [\n"
-        "            \"8.2.2.1 Levik ja arvukus maailmas ja Euroopas\",\n"
-        "            \"8.2.2.2 Levik ja arvukus Eestis\",\n"
-        "            \"8.2.3 Kaitsestaatus ja senise kaitse tõhususe analüüs\"\n"
-        "         ]\n"
-        "      },\n"
-        "      {\n"
-        "         \"Seisund ELis\": [\"8.2.2.1 Levik ja arvukus maailmas ja Euroopas\"]\n"
-        "      },\n"
-        "      {\n"
-        "         \"Kokkuvõte\": [\"Kokkuvõte\"]\n"
-        "      }\n"
-        "   ]\n"
-        "}\n"
-        "```\n"
-    )
+def format_using_gpt(toc, bird_name, multiple_bird_centered):
+    if multiple_bird_centered:
+        prompt = (
+            f"Kasutades järgnevat sisukorda:\n\n{toc}\n\n"
+            "Palun lahenda selle põhjal ja tagasta JSON formaadis, "
+            f"mis osad on seotud linnuga {bird_name} ja järgmiste teemadega:\n"
+            "'Elupaik', 'Elupaiga seisund', 'Ohud', "
+            "'Populatsiooni muutused Eestis', 'Uuringud', 'Seisund ELis', 'Kokkuvõte'."
+            "\n\nArvesta, et kui on seotud mitme linnuliigiga käsitletud osad, "
+            "siis need lisatakse vastavatesse kategooriatesse.\n"
+            "Näiteks lindu 'Hallhani' analüüsides lisatakse ka '3. Ohutegurid'.\n\n"
+            "Struktuur peaks olla järgmine:\n"
+            "```json\n"
+            "{\n"
+            f"   \"{bird_name}\": [\n"
+            "      {\n"
+            "         \"Elupaik\": [\"2.2.1.1 Elupaiganõudlus\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Elupaiga seisund\": [\"2.2.1.1 Elupaiganõudlus\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Ohud\": [\"3. Ohutegurid\", \"2.2.4 Kaitsestaatus ja senise kaitse tõhususe analüüs\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Populatsiooni muutused Eestis\": [\"2.2.3.2 Levik ja arvukus Eestis\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Uuringud\": [\n"
+            "            \"2.2.2 Ülevaade uuringutest ja inventuuridest\",\n"
+            "            \"2.2.3.1 Levik ja arvukus Euroopas\",\n"
+            "            \"2.2.3.2 Levik ja arvukus Eestis\"\n"
+            "         ]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Seisund ELis\": [\"2.2.3.1 Levik ja arvukus Euroopas\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Kokkuvõte\": [\"Kokkuvõte\"]\n"
+            "      }\n"
+            "   ]\n"
+            "}\n"
+            "```\n"
+        )
+    else:
+        prompt = (
+            f"Kasutades järgnevat sisukorda:\n\n{toc}\n\n"
+            "Palun lahenda selle põhjal ja tagasta JSON formaadis, "
+            f"mis osad on seotud järgmiste teemadega:\n"
+            "'Elupaik', 'Elupaiga seisund', 'Ohud', "
+            "'Populatsiooni muutused Eestis', 'Uuringud', 'Seisund ELis', 'Kokkuvõte'.\n\n"
+            "Struktuur peaks olla nagu nii:\n"
+            "```json\n"
+            "{\n"
+            f"   \"Lind\": [\n"
+            "      {\n"
+            "         \"Elupaik\": [\"8.2.1.1 Elupaiganõudlus\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Elupaiga seisund\": [\"8.2.1.1 Elupaiganõudlus\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Ohud\": [\"8.2.3 Kaitsestaatus ja senise kaitse tõhususe analüüs\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Populatsiooni muutused Eestis\": [\"8.2.2.2 Levik ja arvukus Eestis\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Uuringud\": [\n"
+            "            \"8.2.2.1 Levik ja arvukus maailmas ja Euroopas\",\n"
+            "            \"8.2.2.2 Levik ja arvukus Eestis\",\n"
+            "            \"8.2.3 Kaitsestaatus ja senise kaitse tõhususe analüüs\"\n"
+            "         ]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Seisund ELis\": [\"8.2.2.1 Levik ja arvukus maailmas ja Euroopas\"]\n"
+            "      },\n"
+            "      {\n"
+            "         \"Kokkuvõte\": [\"Kokkuvõte\"]\n"
+            "      }\n"
+            "   ]\n"
+            "}\n"
+            "```\n"
+        )
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -119,11 +157,20 @@ def main():
 
         text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
         text = read_text_from_file(text_file_path)
-        toc = extract_table_of_contents(text)
+        toc, toc_start, toc_end = extract_full_table_of_contents(text)
 
         if toc:
-            if bird_id.lower() in strategy_file.lower() or bird_id.lower() in toc.lower():
-                json_results = format_using_gpt(toc, bird_name)
+            one_bird_centered = False
+            multiple_bird_centered = False
+
+            if bird_id.lower() in toc.lower():
+                multiple_bird_centered = True
+            if bird_id.lower() in strategy_file.lower():
+                one_bird_centered = True
+                multiple_bird_centered = False
+
+            if multiple_bird_centered or one_bird_centered:
+                json_results = format_using_gpt(toc, bird_name, multiple_bird_centered)
                 if json_results:
                     for key, value in json_results.items():
                         row[key] = value
@@ -133,5 +180,5 @@ def main():
     result_df.to_csv("output.csv", index=False, encoding='utf-8')
 
 
-#if __name__ == '__main__':
-#    main()
+if __name__ == '__main__':
+    main()
