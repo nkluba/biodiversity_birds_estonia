@@ -145,25 +145,40 @@ def extract_text_between_sections(text, start_section, end_section=None):
 def extract_text_for_sections(text, toc, sections):
     """
     Loops through the sections in the ToC and extracts the text for each section.
+    Handles cases where multiple sections are provided in one line,
+    splitting them by ', ' and then concatenating their extracted texts.
     """
     extracted_text = []
+
     for i, section in enumerate(sections):
-        # Find the current section
-        _, start_section_line = find_section_in_toc(toc, section)
-        if not start_section_line:
-            print(f"Section '{section}' not found in Table of Contents.")
-            continue
+        # Split section names by ', ' to handle cases where multiple sections are provided in one line
+        individual_sections = [s.strip() for s in section.split(',')]
 
-        # Check for the next section to mark the end of this section's extraction
-        next_section_line = (
-            find_section_in_toc(toc, sections[i + 1])[1] if i + 1 < len(sections) else None
-        )
-        # Extract the relevant portion of the text
-        extracted_chunk = extract_text_between_sections(text, start_section_line, next_section_line)
-        if extracted_chunk:
-            extracted_text.append(extracted_chunk)
+        for j, individual_section in enumerate(individual_sections):
+            # Find the current individual section in the ToC
+            _, start_section_line = find_section_in_toc(toc, individual_section)
+            if not start_section_line:
+                print(f"Section '{individual_section}' not found in Table of Contents.")
+                continue
 
-    # Return the combined extracted texts, with sections joined by two newlines
+            # Check for the next section to mark the end of this section's extraction
+            # If it's the last section, there's no next section
+            if j + 1 < len(individual_sections):
+                # Look for the next section in case it's part of the same line
+                next_section_line = find_section_in_toc(toc, individual_sections[j + 1])[1]
+            elif i + 1 < len(sections):
+                # If we reached the end of the current grouped sections, move to the next section in the main list
+                next_section_line = find_section_in_toc(toc, sections[i + 1])[1]
+            else:
+                # If there's no next section (if this is the last section), set it to None
+                next_section_line = None
+
+            # Extract the relevant portion of the text between the current section and the next section
+            extracted_chunk = extract_text_between_sections(text, start_section_line, next_section_line)
+            if extracted_chunk:
+                extracted_text.append(extracted_chunk)
+
+    # Return the combined extracted texts, with sections joined by two newlines for readability
     return "\n\n".join(extracted_text)
 
 
