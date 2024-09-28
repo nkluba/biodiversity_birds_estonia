@@ -32,23 +32,34 @@ def extract_full_table_of_contents(text):
     """
     Extracts the full Table of Contents (Sisukord) from the provided text,
     including multi-page layouts and handling irregular breaks.
+    It also returns the start and end line numbers.
     """
-    # Locate the start of the Sisukord section using "Sisukord" as the trigger
+
+    # Locate the start of the "Sisukord" section by keyword
     toc_start_index = text.find("Sisukord")
     if toc_start_index == -1:
-        return None  # Sisukord not found
+        return None, None, None  # No TOC found, return placeholders
 
     current_index = toc_start_index
     toc_text = ""
 
-    # Regular expression to look for ToC lines ending in dots followed by page numbers
+    # Regular expression to look for ToC lines that end in dots followed by page numbers
     toc_line_pattern = re.compile(r"\.{5,}\s*\d+$")
 
     # Track how many lines without '....' separators we've seen in a row
     lines_without_dots = 0
     toc_continues = True
 
-    # Loop over the text in blocks
+    # Determine the start line by counting lines up to the TOC start index
+    pre_toc_lines = text[:toc_start_index].splitlines()
+    toc_start_line = len(pre_toc_lines) + 1  # Line number where "Sisukord" is detected
+
+    current_line_number = toc_start_line  # Start tracking from the 'Sisukord' line
+
+    toc_found_lines = []  # To store valid ToC lines
+    toc_end_line = toc_start_line  # To store the final line of the ToC
+
+    # Loop over the text block-by-block
     while toc_continues and current_index < len(text):
         # Identify the next form feed (page break) or take rest of the text
         page_break_index = text.find("\f", current_index)
@@ -57,32 +68,41 @@ def extract_full_table_of_contents(text):
             toc_continues = False
         else:
             current_chunk = text[current_index:page_break_index + 1]
-            current_index = page_break_index + 1  # Move cursor to after page break
+            current_index = page_break_index + 1  # Move index to the text after the page break
 
         toc_lines = current_chunk.splitlines()
         capture_chunk = ""
 
-        # Add lines to ToC and stop when consecutive non-ToC lines grow beyond threshold
+        # Iterate through the current chunk's lines to check for ToC format
         for line in toc_lines:
+            current_line_number += 1  # Increment line counter
+
+            clean_line = line.strip()  # Clean leading and trailing whitespace
+
             # Skip completely empty lines
-            clean_line = line.strip()
             if not clean_line:
                 continue
 
             if toc_line_pattern.search(line):
-                # We have a valid ToC line (ending in '....page#')
+                # We have a valid ToC entry
                 capture_chunk += line + "\n"
-                lines_without_dots = 0  # Reset counter when a valid line is found
+                toc_found_lines.append(current_line_number)
+                lines_without_dots = 0  # Reset the counter when a valid line is found
+                toc_end_line = current_line_number  # Update the end line as we find valid ToC lines
             else:
-                # Check if we've gone too far from the ToC part
+                # If the line doesn't look like a ToC entry
                 lines_without_dots += 1
-                if lines_without_dots > 10:  # Once 10 consecutive lines without dots occur, we can stop
+                if lines_without_dots > 10:  # End after 10 lines without valid ToC patterns
                     toc_continues = False
                     break
 
         toc_text += capture_chunk
 
-    return toc_text.strip()  # Clean up and return the collected ToC
+    # If no valid entries were found, return None
+    if not toc_found_lines:
+        return None, None, None
+
+    return toc_text.strip(), toc_start_line, toc_end_line
 
 
 def normalize_and_clean_line(line):
@@ -95,9 +115,20 @@ def normalize_and_clean_line(line):
 
     # Trim leading and trailing spaces
     line = line.strip()
+    line = line.replace('.', '.').replace(' ', ' ')
 
-    # Optionally remove trailing dots (common after section numbers like 2.5.1.1.)
-    line = line.rstrip('.').replace('.', '').replace(' ', '')
+    last_alpha_index = -1
+    for index, char in enumerate(line):
+        if char.isalpha():
+            last_alpha_index = index
+
+    # If an alphabetic character is found, slice the string up to and including it
+    if last_alpha_index != -1:
+        line = line[:last_alpha_index + 1].strip()
+    else:
+        # In case no alphabetic character is found, return the original line
+        line = line.strip()
+
     return line
 
 
@@ -114,10 +145,9 @@ def find_section_in_toc(toc, section_name):
     # Iterate over ToC lines and try to find a match with cleaned section name
     for i, line in enumerate(lines):
         cleaned_line = normalize_and_clean_line(line)
-        # Use fuzzy comparison to handle minimal differences
-        if difflib.SequenceMatcher(None, cleaned_section_name, cleaned_line).ratio() > 0.9:
-            # If high similarity (above 90%) return it as a match
-            return i, line
+        if cleaned_section_name.replace('.', '') in cleaned_line.replace('.', ''):
+            print(cleaned_section_name, cleaned_line)
+            return i, cleaned_line
 
     # If no match found, return None, None indicating failure
     return None, None
@@ -142,7 +172,7 @@ def extract_text_between_sections(text, start_section, end_section=None):
 
 ### Extraction Logic Functions ###
 
-def extract_text_for_sections(text, toc, sections):
+def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line):
     """
     Loops through the sections in the ToC and extracts the text for each section.
     Handles cases where multiple sections are provided in one line,
@@ -173,8 +203,10 @@ def extract_text_for_sections(text, toc, sections):
                 # If there's no next section (if this is the last section), set it to None
                 next_section_line = None
 
+            removed_toc_text = "\n".join(text.splitlines()[:toc_start_line-1] + text.splitlines()[toc_end_line:])
             # Extract the relevant portion of the text between the current section and the next section
-            extracted_chunk = extract_text_between_sections(text, start_section_line, next_section_line)
+            #print(start_section_line, next_section_line)
+            extracted_chunk = extract_text_between_sections(removed_toc_text, start_section_line, next_section_line)
             if extracted_chunk:
                 extracted_text.append(extracted_chunk)
 
@@ -200,17 +232,18 @@ def process_row(row, strategy_file_path):
 
     # Read text for the current strategy
     text = read_text_from_file(strategy_file_path)
+
     if text is None:
         return None
 
     # Extract full Table of Contents
-    toc = extract_full_table_of_contents(text)
+    toc, toc_start_line, toc_end_line = extract_full_table_of_contents(text)
     if not toc:
         print(f"Sisukord not found for {strategy_file_path}.")
         return None
 
     # Extract text for the sections
-    extracted_text = extract_text_for_sections(text, toc, sections)
+    extracted_text = extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
 
     return extracted_text
 
