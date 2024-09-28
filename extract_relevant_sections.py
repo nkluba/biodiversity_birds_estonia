@@ -199,12 +199,11 @@ def extract_text_for_all_sections(client, text_content, sections):
     )
 
     # Parse the response. Assuming we get a JSON-like dictionary for each section.
-    processed_json_response = preprocess_json_response(json_response)
+    processed_json_response = preprocess_json_response(json_response.choices[0].message.content)
     print(processed_json_response)
     return processed_json_response
 
 
 df = pd.read_csv("output.csv")
-
 sections_json = extract_sections(df, client)
 print(sections_json)
