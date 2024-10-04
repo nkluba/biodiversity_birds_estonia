@@ -17,7 +17,7 @@ def read_text_from_file(file_path):
 def extract_bird_related_text(text, bird_name):
     lines = text.split('\n')
     result = []
-    capture_lines = 20  # Define the number of lines to capture before and after
+    capture_lines = 30  # Define the number of lines to capture before and after
     n = len(lines)
 
     for i in range(n):
@@ -75,7 +75,7 @@ def extract_bird_sections(text, bird_name):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Oled abivalmis assistent, kes aitab teksti analüüsida ja struktuurida."},
+                {"role": "system", "content": "Oled abivalmis assistent, kes aitab teksti analüüsida."},
                 {"role": "user", "content": prompt}
             ]
         )
@@ -248,14 +248,21 @@ def main():
                 if json_results:
                     for key, value in json_results.items():
                         row[key] = value
+                    row['Analyze_by_sisukord'] = True
                     results.append(row)
             else:
                 non_bird_strategy_texts = extract_bird_sections(text, bird_name)
-                row['Kokkuvõte'] = non_bird_strategy_texts
+                row['Kokkuvõte_text'] = non_bird_strategy_texts
+                row['Analyze_by_sisukord'] = False
                 results.append(row)
+        elif not toc and bird_id.lower() in strategy_file.lower():
+            row['Kokkuvõte_text'] = text
+            row['Analyze_by_sisukord'] = False
+            results.append(row)
         else:
             non_bird_strategy_texts = extract_bird_sections(text, bird_name)
-            row['Kokkuvõte'] = non_bird_strategy_texts
+            row['Kokkuvõte_text'] = non_bird_strategy_texts
+            row['Analyze_by_sisukord'] = False
             results.append(row)
 
 

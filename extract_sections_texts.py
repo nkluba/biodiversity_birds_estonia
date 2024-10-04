@@ -274,12 +274,13 @@ def process_csv(input_csv, strategy_materials_folder, output_csv):
         strategy_file_path = os.path.join(strategy_materials_folder, strategy_file.replace('.pdf', '_cleaned.txt'))
 
         # Process the row to obtain extracted text
-        extracted_text = process_row(row, strategy_file_path)
+        if row['Analyze_by_sisukord'] == True:
+            extracted_text = process_row(row, strategy_file_path)
 
-        if extracted_text:
-            # Update the DataFrame with the extracted text for the current row
-            for key, value in extracted_text.items():
-                df.at[index, key] = value
+            if extracted_text:
+                # Update the DataFrame with the extracted text for the current row
+                for key, value in extracted_text.items():
+                    df.at[index, key] = value
 
     # Save the updated DataFrame to the output CSV file
     df.to_csv(output_csv, index=False)
@@ -291,9 +292,9 @@ def process_csv(input_csv, strategy_materials_folder, output_csv):
 
 def main():
     # Define paths
-    input_csv = 'output.csv'
+    input_csv = 'sample_output.csv'
     strategy_materials_folder = 'strategy_materials'
-    output_csv = 'updated_output.csv'
+    output_csv = 'texts_for_analysis.csv'
 
     # Process the entire CSV
     process_csv(input_csv, strategy_materials_folder, output_csv)
@@ -303,3 +304,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+#do this only for Analyze_by_sisukord = True
