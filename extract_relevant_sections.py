@@ -13,6 +13,21 @@ def read_text_from_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
+
+def extract_bird_sections(text, bird_name):
+    # Regex pattern to find blocks where bird_name is mentioned, capturing surrounding context
+    bird_pattern = re.compile(
+        rf'(^(?:(?!\n\s*\n).)*\b{bird_name}\b(?:(?!\n\s*\n).)*$)',
+        re.IGNORECASE | re.MULTILINE | re.DOTALL
+    )
+    matches = bird_pattern.findall(text)
+
+    # Clean up the extracted sections
+    cleaned_matches = [re.sub(r'\s+', ' ', match).strip() for match in matches]
+    cleaned_matches = " ".join(cleaned_matches)
+    return cleaned_matches
+
+
 def format_using_gpt(toc, bird_name, multiple_bird_centered):
     if multiple_bird_centered:
         prompt = (
@@ -145,7 +160,7 @@ def transform_json_response(response_json):
 
 def main():
     os.chdir('/home/teks/PycharmProjects/biodiversity')
-    input_csv = 'failed.csv'
+    input_csv = 'sample.csv'
     df = pd.read_csv(input_csv)
 
     results = []
@@ -153,7 +168,7 @@ def main():
     for index, row in df.iterrows():
         strategy_file = row['strategy_file']
         bird_name = row['Estonian Name']
-        bird_id = bird_name[:-3]
+        bird_id = bird_name[:-2]
 
         text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
         text = read_text_from_file(text_file_path)
@@ -169,15 +184,24 @@ def main():
                 one_bird_centered = True
                 multiple_bird_centered = False
 
-            if multiple_bird_centered or one_bird_centered:
+            if multiple_bird_centered or one_bird_centered or row['strategy_present'] == True:
                 json_results = format_using_gpt(toc, bird_name, multiple_bird_centered)
                 if json_results:
                     for key, value in json_results.items():
                         row[key] = value
                     results.append(row)
+            else:
+                non_bird_strategy_texts = extract_bird_sections(text, bird_id)
+                row['Kokkuvõte'] = non_bird_strategy_texts
+                results.append(row)
+        else:
+            non_bird_strategy_texts = extract_bird_sections(text, bird_id)
+            row['Kokkuvõte'] = non_bird_strategy_texts
+            results.append(row)
+
 
     result_df = pd.DataFrame(results)
-    result_df.to_csv("output.csv", index=False, encoding='utf-8')
+    result_df.to_csv("sample_output.csv", index=False, encoding='utf-8')
 
 
 if __name__ == '__main__':
