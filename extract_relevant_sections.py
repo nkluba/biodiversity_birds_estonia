@@ -31,29 +31,60 @@ def extract_bird_related_text(text, bird_name):
     return "\n".join(result)
 
 
+def split_text_into_chunks(text, max_tokens):
+    words = text.split()
+    current_chunk = []
+    current_chunk_tokens = 0
+
+    chunks = []
+    for word in words:
+        word_tokens = len(word)  # Simplified token estimation
+        if current_chunk_tokens + word_tokens > max_tokens:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = []
+            current_chunk_tokens = 0
+        current_chunk.append(word)
+        current_chunk_tokens += word_tokens
+
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+
+    return chunks
+
+
 def extract_bird_sections(text, bird_name):
-    # bird_name[:-2] --> to cut word endings
+    # Extract relevant sections related to the bird
     text = extract_bird_related_text(text, bird_name[:-2])
-    # Create the prompt for the OpenAI API
-    prompt = f"""
-    Otsi järgnevas tekstis lõigud, mis on seotud linnuga '{bird_name}', ja kombineeri need. 
-    Tagasta tulemused ühe tekstina. Siin on otsitav tekst:
-    
-    {text}
-    """
 
-    # Call the OpenAI API with the constructed prompt
-    # 4o used instead of mini because of the input text size
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Oled abivalmis assistent, kes aitab teksti analüüsida ja struktuurida."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    # Split the text into chunks suitable for the language model
+    chunks_for_llm = split_text_into_chunks(text, 128000)
 
-    extracted_text = response.choices[0].message.content
-    return extracted_text
+    # Initialize a variable to hold the concatenated responses
+    combined_response = ""
+
+    for chunk in chunks_for_llm:
+        # Create the prompt for each chunk
+        prompt = f"""
+        Otsi järgnevas tekstis lõigud, mis on seotud linnuga '{bird_name}', ja kombineeri need.
+        Tagasta tulemused ühe tekstina.
+
+        {chunk}
+        """
+
+        # Call the OpenAI API with the constructed prompt
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Oled abivalmis assistent, kes aitab teksti analüüsida ja struktuurida."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        # Append the response for each chunk to the combined response
+        extracted_text = response.choices[0].message.content
+        combined_response += extracted_text + "\n"
+
+    return combined_response.strip()
 
 
 def format_using_gpt(toc, bird_name, multiple_bird_centered):
