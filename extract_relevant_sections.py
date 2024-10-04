@@ -27,6 +27,7 @@ def extract_bird_related_text(text, bird_name):
             result.extend(lines[start:end])
             i += capture_lines  # Move the index forward to continue from +20 line
 
+    result = list(set(list(result)))
     return "\n".join(result)
 
 
