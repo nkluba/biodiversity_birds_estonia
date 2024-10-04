@@ -194,7 +194,6 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
             section_idx, start_section_line = find_section_in_toc(toc_sections_list, individual_section)
             if not start_section_line:
                 print(f"Section '{individual_section}' not found in Table of Contents.")
-                print(toc)
                 continue
 
             # Check for the next section to mark the end of this section's extraction

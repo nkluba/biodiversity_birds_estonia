@@ -13,20 +13,6 @@ def read_text_from_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
-# Function to extract relevant sections using regex
-def extract_bird_sections(text, bird_name):
-    # Regex pattern to find blocks where bird_name is mentioned, capturing surrounding context
-    bird_pattern = re.compile(
-        rf'(^(?:(?!\n\s*\n).)*\b{bird_name}\b(?:(?!\n\s*\n).)*$)',
-        re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
-    matches = bird_pattern.findall(text)
-
-    # Clean up the extracted sections
-    cleaned_matches = [re.sub(r'\s+', ' ', match).strip() for match in matches]
-    return cleaned_matches
-
-
 def transform_json_response(response_json):
     # Ensure values are all strings and lists are joined into a single string
     for key, value in response_json.items():
@@ -38,8 +24,27 @@ def transform_json_response(response_json):
             response_json[key] = str(value)
     return response_json
 
+# New function: format using GPT per section
+def format_using_gpt_per_section(parameter, text):
+    prompt = f"""
+    Otsi järgnevas tekstis lõigud, mis on seotud sellise teemaga linnule: {parameter}.
+    Tagasta tulemused ühe tekstina.
 
-# Function to format extracted information using ChatGPT
+    {text}
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Oled abivalmis assistent, kes aitab ekstraktitud teavet vormindada."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    section_response = response.choices[0].message.content
+    return section_response.strip()
+
+# Function to format information for full description using ChatGPT
 def format_using_gpt(text):
     prompt = (
         f"Vorminda järgmine teave JSON-struktuurina selgel ja struktureeritud viisil:\n\n{text}\n\n"
@@ -48,18 +53,18 @@ def format_using_gpt(text):
         "{\n"
         '  "Elupaik": "NA",\n'
         '  "Elupaiga seisund": "NA",\n'
-        '  "Ohud": "NA",\n'  # Here, list items will be joined by commas
-        '  "Populatsiooni muutused Eestis": "NA",\n'  # Join the details by commas
+        '  "Ohud": "NA",\n'
+        '  "Populatsiooni muutused Eestis": "NA",\n'
         '  "Kas rändlinnud": "NA",\n'
         '  "Läbiviidud uuringud": "NA",\n'
         '  "Kavandatud uuringud": "NA",\n'
         '  "Seisund ELis": "NA",\n'
-        '  "Populatsiooni muutused teistes ELi riikides": "NA"\n'  # Join by commas
+        '  "Populatsiooni muutused teistes ELi riikides": "NA"\n'
         "}\n"
     )
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Oled abivalmis assistent, kes aitab ekstraktitud teavet vormindada."},
             {"role": "user", "content": prompt}
@@ -74,12 +79,10 @@ def format_using_gpt(text):
         formatted_response = transform_json_response(response_json)
         return formatted_response
     except json.JSONDecodeError:
-        # If direct parsing fails, attempt to extract JSON within triple backticks using regex
         match = re.search(r'```json\n([\s\S]*?)\n```', json_response)
         if match:
             json_text = match.group(1)
             try:
-                # Try parsing the extracted text as JSON
                 response_json = json.loads(json_text)
                 return response_json
             except json.JSONDecodeError:
@@ -93,26 +96,14 @@ def format_using_gpt(text):
 
 def parse_json_to_dataframe_columns(json_data):
     if json_data:
-        # For each key/value in the JSON response, return it mapped as a column
         return {k: [v] for k, v in json_data.items()}
     else:
-        # If there's no JSON data, return an empty mapping
         return {}
-
-
-def extract_kokkuvote_section(text):
-    # Pattern to find Kokkuvõte section assuming it's a standalone section.
-    kokkuvote_pattern = re.compile(r'Kokkuvõte(.*?)\n\s*\n', re.DOTALL)
-    match = kokkuvote_pattern.search(text)
-    if match:
-        return match.group(1).strip()
-    return None
-
 
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st5_relevant_pdf_reports.csv')[:10].fillna('')
+    df = pd.read_csv('texts_for_analysis.csv')[:10].fillna('')
 
     formatted_responses = []
     response_dfs = []
@@ -120,75 +111,37 @@ def main():
     # Process each row in the DataFrame
     for index, row in df.iterrows():
         estonian_name = row['Estonian Name']
-        kirjeldus_text = str(row.get('Kirjeldus'))
-        ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
-        kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
-        strategy_present = row.get('strategy_present', False)  # Assuming this is how strategy_present is stored
+        kirjeldus = str(row.get('kirjeldus', '')) + ' ' + str(row.get('Kokkuvõte_text', ''))
 
-        concatenated_texts = []  # List to hold all formatted texts
-
-        if not kirjeldus.isspace():
-            # Format the combined 'Kirjeldus' and 'Ohutegurite kirjeldus'
+        if not row['Analyze_by_sisukord']:
+            # Step 1: If Analyze_by_sisukord is False, combine kirjeldus and Kokkuvõte_text
             formatted_text = format_using_gpt(kirjeldus)
             if formatted_text:
-                concatenated_texts.append(formatted_text)
+                formatted_responses.append(formatted_text)
+                response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
 
-        # Read from the text file converted from PDF
-        strategy_file = row['strategy_file']
-        text_file_path = os.path.join('strategy_materials', strategy_file.replace('.pdf', '_cleaned.txt'))
-        text = read_text_from_file(text_file_path)
+        else:
+            # Step 2: If Analyze_by_sisukord is True, process sections individually
+            sections = ['Elupaik', 'Elupaiga seisund', 'Ohud', 'Populatsiooni muutused Eestis', 'Uuringud', 'Seisund ELis']
+            sections_dict = {}
 
-        # Decide whether to extract Kokkuvõte section or use extract_bird_sections
-        if strategy_present:
-            kokkuvote_section = extract_kokkuvote_section(text)
-            print(kokkuvote_section)
-            if kokkuvote_section:
-                formatted_text = format_using_gpt(kokkuvote_section)
-                if formatted_text:
-                    concatenated_texts.append(formatted_text)
-            else:
-                # Fallback to extracting bird sections
-                bird_sections = extract_bird_sections(text, estonian_name)
-                extracted_text = "\n".join(bird_sections)
+            for section in sections:
+                column_name = section + '_text'
+                text = row.get(column_name, '')
+                if not text.strip():
+                    text = kirjeldus  # Fill with combined 'kirjeldus' and 'Kokkuvõte_text'
 
-                if extracted_text:
-                    # Format the extracted sections
-                    formatted_text = format_using_gpt(extracted_text)
-                    if formatted_text:
-                        concatenated_texts.append(formatted_text)
+                sections_dict[section] = format_using_gpt_per_section(section, text)
 
-        # Combine all JSON responses into one
-        combined_json = {}
-        for response_json in concatenated_texts:
-            for key, value in response_json.items():
-                if key in combined_json:
-                    # If already present, make sure it is a string before concatenating
-                    combined_json[key] = str(combined_json[key])
-                    print(
-                        f"Key: {key}, Value: {value}, Current combined_json[key]: {combined_json.get(key, 'Not set')}")
-                    combined_json[key] += f" / {value}" if value != "NA" else ""
-                else:
-                    combined_json[key] = value
+            formatted_responses.append(sections_dict)
+            response_dfs.append(parse_json_to_dataframe_columns(sections_dict))
 
-        # Convert JSON response into DataFrame-compatible format
-        json_columns = parse_json_to_dataframe_columns(combined_json)
-        formatted_responses.append(json_columns)
+    # You can now add response_dfs back to the original DataFrame or save it as needed
+    for i, response_df in enumerate(response_dfs):
+        for column, value in response_df.items():
+            df.at[i, column] = value[0]
 
-        # Store the response DataFrame for later concatenation
-        response_df = pd.DataFrame(json_columns, index=[index])
-        response_dfs.append(response_df)
-
-    if response_dfs:
-        # Concatenate all response DataFrames before inserting them into the main DataFrame
-        all_responses_df = pd.concat(response_dfs, axis=0)
-        # Concatenate with the original DataFrame
-        df = pd.concat([df, all_responses_df], axis=1)
-
-    # Save the DataFrame to a new CSV file
-    df.to_csv('st5_relevant_pdf_reports_with_responses.csv', index=False)
+    df.to_csv('updated_reports.csv', index=False)
 
 if __name__ == "__main__":
     main()
-
-
-# - check if pdf is bird-centered or not; if is, then extract only Kokkuvotte part (if present)
