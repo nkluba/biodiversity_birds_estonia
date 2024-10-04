@@ -14,18 +14,45 @@ def read_text_from_file(file_path):
         return file.read()
 
 
-def extract_bird_sections(text, bird_name):
-    # Regex pattern to find blocks where bird_name is mentioned, capturing surrounding context
-    bird_pattern = re.compile(
-        rf'(^(?:(?!\n\s*\n).)*\b{bird_name}\b(?:(?!\n\s*\n).)*$)',
-        re.IGNORECASE | re.MULTILINE | re.DOTALL
-    )
-    matches = bird_pattern.findall(text)
+def extract_bird_related_text(text, bird_name):
+    lines = text.split('\n')
+    result = []
+    capture_lines = 20  # Define the number of lines to capture before and after
+    n = len(lines)
 
-    # Clean up the extracted sections
-    cleaned_matches = [re.sub(r'\s+', ' ', match).strip() for match in matches]
-    cleaned_matches = " ".join(cleaned_matches)
-    return cleaned_matches
+    for i in range(n):
+        if bird_name in lines[i]:
+            start = max(0, i - capture_lines)  # Ensure we don't go out of bounds at the start
+            end = min(n, i + capture_lines + 1)  # Ensure we don't go out of bounds at the end
+            result.extend(lines[start:end])
+            i += capture_lines  # Move the index forward to continue from +20 line
+
+    return "\n".join(result)
+
+
+def extract_bird_sections(text, bird_name):
+    # bird_name[:-2] --> to cut word endings
+    text = extract_bird_related_text(text, bird_name[:-2])
+    # Create the prompt for the OpenAI API
+    prompt = f"""
+    Otsi järgnevas tekstis lõigud, mis on seotud linnuga '{bird_name}', ja kombineeri need. 
+    Tagasta tulemused ühe tekstina. Siin on otsitav tekst:
+    
+    {text}
+    """
+
+    # Call the OpenAI API with the constructed prompt
+    # 4o used instead of mini because of the input text size
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Oled abivalmis assistent, kes aitab teksti analüüsida ja struktuurida."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    extracted_text = response.choices[0].message.content
+    return extracted_text
 
 
 def format_using_gpt(toc, bird_name, multiple_bird_centered):
@@ -191,11 +218,11 @@ def main():
                         row[key] = value
                     results.append(row)
             else:
-                non_bird_strategy_texts = extract_bird_sections(text, bird_id)
+                non_bird_strategy_texts = extract_bird_sections(text, bird_name)
                 row['Kokkuvõte'] = non_bird_strategy_texts
                 results.append(row)
         else:
-            non_bird_strategy_texts = extract_bird_sections(text, bird_id)
+            non_bird_strategy_texts = extract_bird_sections(text, bird_name)
             row['Kokkuvõte'] = non_bird_strategy_texts
             results.append(row)
 
