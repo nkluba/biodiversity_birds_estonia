@@ -149,7 +149,7 @@ def find_section_in_toc(lines, section_name):
 
     # Iterate over ToC lines and try to find a match with cleaned section name
     for i, line in enumerate(lines):
-        if cleaned_section_name.replace('.', '') in line.replace('.', ''):
+        if cleaned_section_name.replace('.', '').lower() in line.replace('.', '').lower():
             return i, line
 
     # If no match found, return None, None indicating failure
@@ -194,6 +194,7 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
             section_idx, start_section_line = find_section_in_toc(toc_sections_list, individual_section)
             if not start_section_line:
                 print(f"Section '{individual_section}' not found in Table of Contents.")
+                print(toc)
                 continue
 
             # Check for the next section to mark the end of this section's extraction
@@ -206,7 +207,7 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
 
             removed_toc_text = "\n".join(text.splitlines()[:toc_start_line-1] + text.splitlines()[toc_end_line:])
             # Extract the relevant portion of the text between the current section and the next section
-            extracted_chunk = extract_text_between_sections(removed_toc_text, start_section_line, next_section_line)
+            extracted_chunk = extract_text_between_sections(removed_toc_text.lower(), start_section_line.lower(), next_section_line.lower())
             if extracted_chunk:
                 # Add the extracted chunk to the dictionary with the section as the key
                 extracted_text[individual_section] = extracted_chunk
@@ -256,7 +257,6 @@ def process_row(row, strategy_file_path):
         # Store concatenated text in a new key such as 'Elupaik_text'
         processed_data[f"{section_name}_text"] = concatenated_text
 
-    print(processed_data)
     return processed_data
 
 
