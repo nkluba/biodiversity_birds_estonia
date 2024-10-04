@@ -27,8 +27,8 @@ def transform_json_response(response_json):
 # New function: format using GPT per section
 def format_using_gpt_per_section(parameter, text):
     prompt = f"""
-    Otsi järgnevas tekstis lõigud, mis on seotud sellise teemaga linnule: {parameter}.
-    Tagasta tulemused ühe tekstina.
+    Otsi järgnevas tekstis linnu kohta käivad lühikesed kokkuvõtted teemal: {parameter}.
+    Tagasta lühike kokkuvõte või NA kui andmeid ei leidu. Ärge lisage ise mingit teksti.
 
     {text}
     """
@@ -47,9 +47,8 @@ def format_using_gpt_per_section(parameter, text):
 # Function to format information for full description using ChatGPT
 def format_using_gpt(text):
     prompt = (
-        f"Vorminda järgmine teave JSON-struktuurina selgel ja struktureeritud viisil:\n\n{text}\n\n"
-        "Struktuur on järgmine (KUI TEAVE PUUDUB TEKSTIS, JÄÄTA 'NA'; kui on antud mitu vastust, "
-        "liituge need üheks sõneks ja eraldage need komadega):\n"
+        f"Otsi järgnevas tekstis kirjed ja vorminda info JSON-struktuurina selgel ning lühendatud kujul:\n\n{text}\n\n"
+        "Struktuur on järgmine (kui teave puudub tekstis, tagasta 'NA', kui esineb mitu vastet, liitu need komadega üheks sõneks):\n"
         "{\n"
         '  "Elupaik": "NA",\n'
         '  "Elupaiga seisund": "NA",\n'
@@ -103,7 +102,7 @@ def parse_json_to_dataframe_columns(json_data):
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('texts_for_analysis.csv')[:10].fillna('')
+    df = pd.read_csv('texts_for_analysis.csv')[:3].fillna('')
 
     formatted_responses = []
     response_dfs = []
