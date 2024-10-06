@@ -219,7 +219,7 @@ def transform_json_response(response_json):
 
 def main():
     os.chdir('/home/teks/PycharmProjects/biodiversity')
-    input_csv = 'sample.csv'
+    input_csv = 'st5_relevant_pdf_reports.csv'
     df = pd.read_csv(input_csv)
 
     results = []
