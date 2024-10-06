@@ -267,7 +267,7 @@ def main():
 
 
     result_df = pd.DataFrame(results)
-    result_df.to_csv("sample_output.csv", index=False, encoding='utf-8')
+    result_df.to_csv("st6_relevant_sections_extracted.csv", index=False, encoding='utf-8')
 
 
 if __name__ == '__main__':

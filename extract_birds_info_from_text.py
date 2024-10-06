@@ -28,7 +28,7 @@ def transform_json_response(response_json):
 def format_using_gpt_per_section(parameter, text):
     prompt = f"""
     Otsi järgnevas tekstis linnu kohta käivad lühikesed kokkuvõtted teemal: {parameter}.
-    Tagasta lühike kokkuvõte või NA kui andmeid ei leidu. Ärge lisage ise mingit teksti.
+    Tagasta lühike kokkuvõte loendavas nimekirjas või NA kui andmeid ei leidu. Ärge lisage ise mingit teksti.
 
     {text}
     """
@@ -47,7 +47,7 @@ def format_using_gpt_per_section(parameter, text):
 # Function to format information for full description using ChatGPT
 def format_using_gpt(text):
     prompt = (
-        f"Otsi järgnevas tekstis kirjed ja vorminda info JSON-struktuurina selgel ning lühendatud kujul:\n\n{text}\n\n"
+        f"Otsi järgnevas tekstis kirjed ja vorminda info JSON-struktuurina selgel ning lühendatud kujul loendava nimekirjaga:\n\n{text}\n\n"
         "Struktuur on järgmine (kui teave puudub tekstis, tagasta 'NA', kui esineb mitu vastet, liitu need komadega üheks sõneks):\n"
         "{\n"
         '  "Elupaik": "NA",\n'
@@ -89,6 +89,7 @@ def format_using_gpt(text):
                 return None
         else:
             print("Error: No JSON found in response. Got: ", json_response)
+            print(text)
             return None
 
     return None
@@ -102,7 +103,7 @@ def parse_json_to_dataframe_columns(json_data):
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('texts_for_analysis.csv')[:3].fillna('')
+    df = pd.read_csv('st7_texts_prepared_for_analysis.csv').fillna('')
 
     formatted_responses = []
     response_dfs = []
@@ -110,15 +111,23 @@ def main():
     # Process each row in the DataFrame
     for index, row in df.iterrows():
         estonian_name = row['Estonian Name']
-        kirjeldus = str(row.get('kirjeldus', '')) + ' ' + str(row.get('Kokkuvõte_text', ''))
+        kirjeldus_text = str(row.get('Kirjeldus'))
+        ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
+        kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
+        print(estonian_name)
 
-        if not row['Analyze_by_sisukord']:
+        if row['Analyze_by_sisukord'] == False and not kirjeldus.isspace():
             # Step 1: If Analyze_by_sisukord is False, combine kirjeldus and Kokkuvõte_text
-            formatted_text = format_using_gpt(kirjeldus)
+            combined_text = ' '.join([row['Kokkuvõte_text'], kirjeldus])
+            formatted_text = format_using_gpt(combined_text)
             if formatted_text:
                 formatted_responses.append(formatted_text)
                 response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
-
+        elif not row['Analyze_by_sisukord'] and kirjeldus.isspace():
+            formatted_text = format_using_gpt(row['Kokkuvõte_text'])
+            if formatted_text:
+                formatted_responses.append(formatted_text)
+                response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
         else:
             # Step 2: If Analyze_by_sisukord is True, process sections individually
             sections = ['Elupaik', 'Elupaiga seisund', 'Ohud', 'Populatsiooni muutused Eestis', 'Uuringud', 'Seisund ELis']
@@ -140,7 +149,7 @@ def main():
         for column, value in response_df.items():
             df.at[i, column] = value[0]
 
-    df.to_csv('updated_reports.csv', index=False)
+    df.to_csv('st8_birds_data_extracted.csv', index=False)
 
 if __name__ == "__main__":
     main()

@@ -206,7 +206,8 @@ def extract_text_for_sections(text, toc, sections, toc_start_line, toc_end_line)
 
             removed_toc_text = "\n".join(text.splitlines()[:toc_start_line-1] + text.splitlines()[toc_end_line:])
             # Extract the relevant portion of the text between the current section and the next section
-            extracted_chunk = extract_text_between_sections(removed_toc_text.lower(), start_section_line.lower(), next_section_line.lower())
+            next_section_line = next_section_line.lower() if next_section_line is not None else None
+            extracted_chunk = extract_text_between_sections(removed_toc_text.lower(), start_section_line.lower(), next_section_line)
             if extracted_chunk:
                 # Add the extracted chunk to the dictionary with the section as the key
                 extracted_text[individual_section] = extracted_chunk
@@ -291,9 +292,9 @@ def process_csv(input_csv, strategy_materials_folder, output_csv):
 
 def main():
     # Define paths
-    input_csv = 'sample_output.csv'
+    input_csv = 'st6_relevant_sections_extracted.csv'
     strategy_materials_folder = 'strategy_materials'
-    output_csv = 'texts_for_analysis.csv'
+    output_csv = 'st7_texts_prepared_for_analysis.csv'
 
     # Process the entire CSV
     process_csv(input_csv, strategy_materials_folder, output_csv)
