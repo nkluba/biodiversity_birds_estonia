@@ -114,11 +114,11 @@ def main():
         kirjeldus_text = str(row.get('Kirjeldus'))
         ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
         kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
+        combined_text = ' '.join([row['Kokkuvõte_text'], kirjeldus])
         print(estonian_name)
 
         if row['Analyze_by_sisukord'] == False and not kirjeldus.isspace():
             # Step 1: If Analyze_by_sisukord is False, combine kirjeldus and Kokkuvõte_text
-            combined_text = ' '.join([row['Kokkuvõte_text'], kirjeldus])
             formatted_text = format_using_gpt(combined_text)
             if formatted_text:
                 formatted_responses.append(formatted_text)
@@ -130,16 +130,21 @@ def main():
                 response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
         else:
             # Step 2: If Analyze_by_sisukord is True, process sections individually
-            sections = ['Elupaik', 'Elupaiga seisund', 'Ohud', 'Populatsiooni muutused Eestis', 'Uuringud', 'Seisund ELis']
-            sections_dict = {}
-
-            for section in sections:
-                column_name = section + '_text'
-                text = row.get(column_name, '')
-                if not text.strip():
-                    text = kirjeldus  # Fill with combined 'kirjeldus' and 'Kokkuvõte_text'
-
-                sections_dict[section] = format_using_gpt_per_section(section, text)
+            sections_dict = {
+                'Elupaik': format_using_gpt_per_section('Elupaik', row.get('Elupaik_text', '') or kirjeldus),
+                'Elupaiga seisund': format_using_gpt_per_section('Elupaiga seisund',
+                                                                 row.get('Elupaiga seisund_text', '') or kirjeldus),
+                'Ohud': format_using_gpt_per_section('Ohud', row.get('Ohud_text', '') or kirjeldus),
+                'Populatsiooni muutused Eestis': format_using_gpt_per_section('Populatsiooni muutused Eestis',
+                                                                              row.get('Populatsiooni muutused Eestis_text',
+                                                                                      '') or kirjeldus),
+                'Seisund ELis': format_using_gpt_per_section('Seisund ELis', row.get('Seisund ELis_text', '') or kirjeldus),
+                'Kas rändlinnud': format_using_gpt_per_section('Kas rändlinnud', combined_text),
+                'Läbiviidud uuringud': format_using_gpt_per_section('Läbiviidud uuringud', row.get('Uuringud_text', '')),
+                'Kavandatud uuringud': format_using_gpt_per_section('Kavandatud uuringud', row.get('Uuringud_text', '')),
+                'Populatsiooni muutused teistes ELi riikides': format_using_gpt_per_section(
+                    'Populatsiooni muutused teistes ELi riikides', combined_text)
+            }
 
             formatted_responses.append(sections_dict)
             response_dfs.append(parse_json_to_dataframe_columns(sections_dict))
