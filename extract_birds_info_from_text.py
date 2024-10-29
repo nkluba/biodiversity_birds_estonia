@@ -27,8 +27,8 @@ def transform_json_response(response_json):
 # New function: format using GPT per section
 def format_using_gpt_per_section(parameter, text):
     prompt = f"""
-    Otsi järgnevas tekstis linnu kohta käivad lühikesed kokkuvõtted teemal: {parameter}.
-    Tagasta lühike kokkuvõte loendavas nimekirjas või NA kui andmeid ei leidu. Ärge lisage ise mingit teksti.
+    Otsi järgnevas tekstis lindude jaoks infot teemal: {parameter}.
+    Tagastage võimalikult üksikasjalikud andmed iga parameetri kohta ühtset teksti, kuid mitte rohkem kui 10 lauset. Tagasta kokkuvõte antud teemal või NA kui andmeid ei leidu. Ärge lisage ise mingit teksti.
 
     {text}
     """
@@ -42,23 +42,17 @@ def format_using_gpt_per_section(parameter, text):
     )
 
     section_response = response.choices[0].message.content
+    print(section_response)
     return section_response.strip()
 
 # Function to format information for full description using ChatGPT
 def format_using_gpt(text):
     prompt = (
-        f"Otsi järgnevas tekstis kirjed ja vorminda info JSON-struktuurina selgel ning lühendatud kujul loendava nimekirjaga:\n\n{text}\n\n"
-        "Struktuur on järgmine (kui teave puudub tekstis, tagasta 'NA', kui esineb mitu vastet, liitu need komadega üheks sõneks):\n"
+        f"Otsi järgnevas tekstis kirjed ja vorminda info JSON-struktuurina loendava nimekirjaga (Tagastage võimalikult üksikasjalikud andmed iga parameetri kohta ühtset teksti, kuid mitte rohkem kui 10 lauset):\n\n{text}\n\n"
+        "Struktuur on järgmine (kui teave puudub tekstis, tagasta 'NA'):\n"
         "{\n"
-        '  "Elupaik": "NA",\n'
-        '  "Elupaiga seisund": "NA",\n'
-        '  "Ohud": "NA",\n'
-        '  "Populatsiooni muutused Eestis": "NA",\n'
-        '  "Kas rändlinnud": "NA",\n'
-        '  "Läbiviidud uuringud": "NA",\n'
-        '  "Kavandatud uuringud": "NA",\n'
-        '  "Seisund ELis": "NA",\n'
-        '  "Populatsiooni muutused teistes ELi riikides": "NA"\n'
+        '  "Kirjeldus (seisund, elupaik, populatsiooni muutused)": "NA",\n'
+        '  "Ohutegurite kirjeldus (ohud, elupaiga seisund)": "NA",\n'
         "}\n"
     )
 
@@ -103,7 +97,7 @@ def parse_json_to_dataframe_columns(json_data):
 # Main processing function
 def main():
     # Load the CSV file
-    df = pd.read_csv('st7_texts_prepared_for_analysis.csv').fillna('')
+    df = pd.read_csv('st7_texts_prepared_for_analysis.csv').fillna('')[:3]
 
     formatted_responses = []
     response_dfs = []
@@ -111,41 +105,27 @@ def main():
     # Process each row in the DataFrame
     for index, row in df.iterrows():
         estonian_name = row['Estonian Name']
-        kirjeldus_text = str(row.get('Kirjeldus'))
-        ohutegurite_kirjeldus_text = str(row.get('Ohutegurite kirjeldus'))
-        kirjeldus = kirjeldus_text + ' ' + ohutegurite_kirjeldus_text
-        combined_text = ' '.join([row['Kokkuvõte_text'], kirjeldus])
         print(estonian_name)
 
-        if row['Analyze_by_sisukord'] == False and not kirjeldus.isspace():
-            # Step 1: If Analyze_by_sisukord is False, combine kirjeldus and Kokkuvõte_text
-            formatted_text = format_using_gpt(combined_text)
-            if formatted_text:
-                formatted_responses.append(formatted_text)
-                response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
-        elif not row['Analyze_by_sisukord'] and kirjeldus.isspace():
+        if row['Analyze_by_sisukord'] == False:
             formatted_text = format_using_gpt(row['Kokkuvõte_text'])
             if formatted_text:
                 formatted_responses.append(formatted_text)
                 response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
         else:
-            # Step 2: If Analyze_by_sisukord is True, process sections individually
+            # If Analyze_by_sisukord is True, process sections individually
+            kirjeldus_texts = ' '.join(text for text in [row.get('Elupaik_text', ''), row.get('Populatsiooni muutused Eestis_text', ''), row.get('Seisund ELis_text', '')])
+            ohud_texts = ' '.join(text for text in [row.get('Elupaiga seisund_text', ''), row.get('Ohud_text', '')])
             sections_dict = {
-                'Elupaik': format_using_gpt_per_section('Elupaik', row.get('Elupaik_text', '') or kirjeldus),
-                'Elupaiga seisund': format_using_gpt_per_section('Elupaiga seisund',
-                                                                 row.get('Elupaiga seisund_text', '') or kirjeldus),
-                'Ohud': format_using_gpt_per_section('Ohud', row.get('Ohud_text', '') or kirjeldus),
-                'Populatsiooni muutused Eestis': format_using_gpt_per_section('Populatsiooni muutused Eestis',
-                                                                              row.get('Populatsiooni muutused Eestis_text',
-                                                                                      '') or kirjeldus),
-                'Seisund ELis': format_using_gpt_per_section('Seisund ELis', row.get('Seisund ELis_text', '') or kirjeldus),
-                'Kas rändlinnud': format_using_gpt_per_section('Kas rändlinnud', combined_text),
-                'Läbiviidud uuringud': format_using_gpt_per_section('Läbiviidud uuringud', row.get('Uuringud_text', '')),
-                'Kavandatud uuringud': format_using_gpt_per_section('Kavandatud uuringud', row.get('Uuringud_text', '')),
-                'Populatsiooni muutused teistes ELi riikides': format_using_gpt_per_section(
-                    'Populatsiooni muutused teistes ELi riikides', combined_text)
+                'Kirjeldus (seisund, elupaik, populatsiooni muutused)': format_using_gpt_per_section(
+                    'Kirjeldus (seisund, elupaik, populatsiooni muutused)',
+                    kirjeldus_texts
+                ),
+                'Ohutegurite kirjeldus (ohud, elupaiga seisund)': format_using_gpt_per_section(
+                    'Ohutegurite kirjeldus (ohud, elupaiga seisund)',
+                    ohud_texts
+                )
             }
-
             formatted_responses.append(sections_dict)
             response_dfs.append(parse_json_to_dataframe_columns(sections_dict))
 
@@ -155,6 +135,25 @@ def main():
             df.at[i, column] = value[0]
 
     df.to_csv('st8_birds_data_extracted.csv', index=False)
+
+    # Save the version for display
+
+    columns_to_keep = [
+        'Estonian Name',
+        'Latin Name',
+        'Category',
+        'EELIS link',
+        'strategy_present',
+        'Nimi inglise k',
+        'Rühm',
+        'Kaitsekategooria',
+        'Kirjeldus (seisund, elupaik, populatsiooni muutused)',
+        'Ohutegurite kirjeldus (ohud, elupaiga seisund)'
+    ]
+
+    df_selected = df[columns_to_keep]
+
+    df_selected.to_csv('updated_birds_descriptions.csv', index=False)
 
 if __name__ == "__main__":
     main()

@@ -225,6 +225,10 @@ def main():
     results = []
 
     for index, row in df.iterrows():
+        # Check if either "Kirjeldus" or "Ohutegurite kirjeldus" is empty
+        if not pd.isna(row.get('Kirjeldus', '')) and not pd.isna(row.get('Ohutegurite kirjeldus', '')):
+            continue
+
         strategy_file = row['strategy_file']
         bird_name = row['Estonian Name']
         bird_id = bird_name[:-2]
@@ -265,10 +269,8 @@ def main():
             row['Analyze_by_sisukord'] = False
             results.append(row)
 
-
     result_df = pd.DataFrame(results)
     result_df.to_csv("st6_relevant_sections_extracted.csv", index=False, encoding='utf-8')
-
 
 if __name__ == '__main__':
     main()
