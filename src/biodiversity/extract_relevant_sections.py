@@ -3,7 +3,7 @@ import re
 import json
 import pandas as pd
 from openai import OpenAI
-from extract_sections_texts import extract_full_table_of_contents
+from .extract_sections_texts import extract_full_table_of_contents
 
 # Initialize OpenAI client
 openai_api_key = os.getenv('OPENAIKEY')

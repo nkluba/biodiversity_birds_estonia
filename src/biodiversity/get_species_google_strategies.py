@@ -11,8 +11,8 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Define the directory to store downloaded PDF files
 strategy_materials_dir = "strategy_materials"
-input_csv_file = "st3_EELIS_additional_data.csv"  # Original CSV file
-output_csv_file = "st4_pdf_gathered.csv"  # New CSV file to save results
+input_csv_file = "../data/st3_EELIS_additional_data.csv"  # Original CSV file
+output_csv_file = "../data/st4_pdf_gathered.csv"  # New CSV file to save results
 search_delay = 10  # Delay between search requests in seconds
 
 

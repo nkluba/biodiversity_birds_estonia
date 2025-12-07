@@ -4,8 +4,9 @@ import pytesseract
 from pdf2image import convert_from_path
 from openai import OpenAI
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
+openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
+
 
 def is_scanned_pdf(pdf_path):
     """
@@ -24,9 +25,9 @@ def extract_text_from_scanned_pdf(pdf_path):
     Use OCR to extract text from a scanned PDF.
     """
     images = convert_from_path(pdf_path)
-    text = ''
+    text = ""
     for image in images:
-        text += pytesseract.image_to_string(image, lang='est')
+        text += pytesseract.image_to_string(image, lang="est")
     return text
 
 
@@ -34,16 +35,22 @@ def clean_text_with_gpt(text):
     """
     Clean and logically update text using GPT.
     """
-    prompt = f"This text was detected with OCR and it might contain errors. Please clean it and update it to be logical: \n\n{text}"
+    prompt = (
+        "This text was detected with OCR and it might contain errors. "
+        "Please clean it and update it to be logical:\n\n"
+        f"{text}"
+    )
 
     stream = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system",
-             "content": "You are a helpful assistant that cleans and enhances text extracted with OCR."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that cleans and enhances text extracted with OCR.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        stream=True
+        stream=True,
     )
 
     cleaned_text = ""
@@ -60,16 +67,21 @@ def process_directory(directory):
     """
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith('.pdf'):
-                pdf_path = os.path.join(root, file)
-                if is_scanned_pdf(pdf_path):
-                    print(f'Processing scanned PDF: {pdf_path}')
-                    raw_text = extract_text_from_scanned_pdf(pdf_path)
-                    cleaned_text = clean_text_with_gpt(raw_text)
-                    output_path = os.path.splitext(pdf_path)[0] + '_cleaned.txt'
-                    with open(output_path, 'w', encoding='utf-8') as f:
-                        f.write(cleaned_text)
+            if not file.endswith(".pdf"):
+                continue
+            pdf_path = os.path.join(root, file)
+            if is_scanned_pdf(pdf_path):
+                print(f"Processing scanned PDF: {pdf_path}")
+                raw_text = extract_text_from_scanned_pdf(pdf_path)
+                cleaned_text = clean_text_with_gpt(raw_text)
+                output_path = os.path.splitext(pdf_path)[0] + "_cleaned.txt"
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(cleaned_text)
 
 
-if __name__ == '__main__':
-    process_directory('strategy_materials')
+def main(directory: str = "strategy_materials") -> None:
+    process_directory(directory)
+
+
+if __name__ == "__main__":
+    main()

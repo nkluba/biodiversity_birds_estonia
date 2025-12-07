@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 import fitz  # PyMuPDF
 import re
@@ -26,15 +25,14 @@ def count_occurrences(text, name):
     return len(re.findall(name, text, re.IGNORECASE))
 
 
-def process_pdfs_in_csv(filename):
+def process_pdfs_in_csv(filename, output_filename="st5_relevant_pdf_reports.csv"):
     """ Process each row in the CSV file """
     df = pd.read_csv(filename)
 
     for index, row in df.iterrows():
-        files = row['strategy_file'].split(',')
+        files = str(row["strategy_file"]).split(",")
         if len(files) > 1:
-            # Extract the Estonian name from the 'Estonian Name' column
-            name = row['Estonian Name']
+            name = row["Estonian Name"]
             if not name:
                 continue
 
@@ -42,7 +40,9 @@ def process_pdfs_in_csv(filename):
             most_mentions_file = None
 
             for pdf in files:
-                pdf = pdf.strip()  # Remove any trailing spaces
+                pdf = pdf.strip()
+                if not pdf:
+                    continue
                 text = extract_text_from_pdf(pdf)
                 if text is None:
                     continue
@@ -52,13 +52,21 @@ def process_pdfs_in_csv(filename):
                     most_mentions_file = pdf
 
             if most_mentions_file:
-                df.at[index, 'strategy_file'] = most_mentions_file.replace('strategy_materials/', '')
+                df.at[index, "strategy_file"] = most_mentions_file.replace(
+                    "strategy_materials/", ""
+                )
             else:
-                df.at[index, 'strategy_file'] = 'Not Present'
+                df.at[index, "strategy_file"] = "Not Present"
 
-    # Save the updated DataFrame back to CSV
-    df.to_csv('st5_relevant_pdf_reports.csv', index=False)
+    df.to_csv(output_filename, index=False)
 
 
-# Run the function with the filename
-#process_pdfs_in_csv('st4_pdf_gathered.csv')
+def main(
+    input_filename: str = "st4_pdf_gathered.csv",
+    output_filename: str = "st5_relevant_pdf_reports.csv",
+) -> None:
+    process_pdfs_in_csv(input_filename, output_filename)
+
+
+if __name__ == "__main__":
+    main()

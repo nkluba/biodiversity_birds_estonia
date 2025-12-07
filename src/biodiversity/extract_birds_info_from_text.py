@@ -127,89 +127,103 @@ def parse_json_to_dataframe_columns(json_data):
             "Ohutegurite kirjeldus (ohud, elupaiga seisund)": ["NA"]
         }
 
-
-# Main processing function
-def main():
-    # Load the CSV file
-    df = pd.read_csv('st7_texts_prepared_for_analysis.csv').fillna('')
+def process_directory(input_csv_path: str, output_csv_path: str, preview_csv_path: str) -> None:
+    df = pd.read_csv(input_csv_path).fillna("")
 
     formatted_responses = []
     response_dfs = []
 
-    # Process each row in the DataFrame
     for index, row in df.iterrows():
-        estonian_name = row['Estonian Name']
+        estonian_name = row["Estonian Name"]
         print(estonian_name)
 
-        if row['Analyze_by_sisukord'] == False:
+        analyze_by_sisukord = bool(row["Analyze_by_sisukord"])
+
+        if not analyze_by_sisukord:
             try:
-                formatted_text = format_using_gpt(row['Kokkuvõte_text'])
+                formatted_text = format_using_gpt(row["Kokkuvõte_text"])
                 if formatted_text:
                     formatted_responses.append(formatted_text)
                     response_dfs.append(parse_json_to_dataframe_columns(formatted_text))
             except (KeyError, json.JSONDecodeError, Exception) as e:
                 print(f"Error in format_using_gpt for {estonian_name}: {e}")
-                # Append placeholders with NA values in the same structure as expected JSON keys
                 formatted_responses.append({
                     "Kirjeldus (seisund, elupaik, populatsiooni muutused)": "NA",
-                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": "NA"
+                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": "NA",
                 })
                 response_dfs.append({
                     "Kirjeldus (seisund, elupaik, populatsiooni muutused)": ["NA"],
-                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": ["NA"]
+                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": ["NA"],
                 })
+
         else:
-            # If Analyze_by_sisukord is True, process sections individually
             try:
-                kirjeldus_texts = ' '.join(text for text in [row.get('Elupaik_text', ''), row.get('Populatsiooni muutused Eestis_text', ''), row.get('Seisund ELis_text', '')])
-                ohud_texts = ' '.join(text for text in [row.get('Elupaiga seisund_text', ''), row.get('Ohud_text', '')])
+                kirjeldus_texts = " ".join([
+                    row.get("Elupaik_text", ""),
+                    row.get("Populatsiooni muutused Eestis_text", ""),
+                    row.get("Seisund ELis_text", ""),
+                ])
+
+                ohud_texts = " ".join([
+                    row.get("Elupaiga seisund_text", ""),
+                    row.get("Ohud_text", ""),
+                ])
+
                 sections_dict = {
-                    'Kirjeldus (seisund, elupaik, populatsiooni muutused)': format_using_gpt_per_section(
-                        'Kirjeldus (seisund, elupaik, populatsiooni muutused)',
-                        kirjeldus_texts
+                    "Kirjeldus (seisund, elupaik, populatsiooni muutused)": format_using_gpt_per_section(
+                        "Kirjeldus (seisund, elupaik, populatsiooni muutused)",
+                        kirjeldus_texts,
                     ),
-                    'Ohutegurite kirjeldus (ohud, elupaiga seisund)': format_using_gpt_per_section(
-                        'Ohutegurite kirjeldus (ohud, elupaiga seisund)',
-                        ohud_texts
-                    )
+                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": format_using_gpt_per_section(
+                        "Ohutegurite kirjeldus (ohud, elupaiga seisund)",
+                        ohud_texts,
+                    ),
                 }
+
                 formatted_responses.append(sections_dict)
                 response_dfs.append(parse_json_to_dataframe_columns(sections_dict))
+
             except (KeyError, json.JSONDecodeError, Exception) as e:
                 print(f"Error in format_using_gpt_per_section for {estonian_name}: {e}")
                 formatted_responses.append({
                     "Kirjeldus (seisund, elupaik, populatsiooni muutused)": "NA",
-                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": "NA"
+                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": "NA",
                 })
                 response_dfs.append({
                     "Kirjeldus (seisund, elupaik, populatsiooni muutused)": ["NA"],
-                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": ["NA"]
+                    "Ohutegurite kirjeldus (ohud, elupaiga seisund)": ["NA"],
                 })
 
-    # Add response_dfs back to the original DataFrame
     for i, response_df in enumerate(response_dfs):
         for column, value in response_df.items():
             df.at[i, column] = value[0]
 
-    df.to_csv('st8_birds_data_extracted.csv', index=False)
+    df.to_csv(output_csv_path, index=False)
 
-    # Save the version for display
     columns_to_keep = [
-        'Estonian Name',
-        'Latin Name',
-        'Category',
-        'EELIS link',
-        'strategy_present',
-        'Nimi inglise k',
-        'Rühm',
-        'Kaitsekategooria',
-        'Kirjeldus (seisund, elupaik, populatsiooni muutused)',
-        'Ohutegurite kirjeldus (ohud, elupaiga seisund)'
+        "Estonian Name",
+        "Latin Name",
+        "Category",
+        "EELIS link",
+        "strategy_present",
+        "Nimi inglise k",
+        "Rühm",
+        "Kaitsekategooria",
+        "Kirjeldus (seisund, elupaik, populatsiooni muutused)",
+        "Ohutegurite kirjeldus (ohud, elupaiga seisund)",
     ]
 
     df_selected = df[columns_to_keep]
+    df_selected.to_csv(preview_csv_path, index=False)
 
-    df_selected.to_csv('updated_birds_descriptions.csv', index=False)
+
+def main(
+    input_csv_path: str = "st7_texts_prepared_for_analysis.csv",
+    output_csv_path: str = "st8_birds_data_extracted.csv",
+    preview_csv_path: str = "updated_birds_descriptions.csv",
+) -> None:
+    process_directory(input_csv_path, output_csv_path, preview_csv_path)
+
 
 if __name__ == "__main__":
     main()

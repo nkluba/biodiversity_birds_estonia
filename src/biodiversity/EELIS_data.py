@@ -29,7 +29,7 @@ def init_webdriver(headless=True):
 def gather_table_data(driver, wait):
     """Extract all data from the table on the webpage and return as a dictionary."""
     table_data = {}
-    # Locate the table rows
+
     rows = wait.until(
         EC.presence_of_all_elements_located(
             (
@@ -50,11 +50,10 @@ def gather_table_data(driver, wait):
     return table_data
 
 
-def check_and_download_strategy(driver):
+def check_and_download_strategy(driver, strategy_folder="strategy_materials"):
     """Check for links in the 'Liigi tegevuskava' section and download if they contain 'getdoc'."""
     strategy_present = False
     strategy_files = []
-    strategy_folder = "strategy_materials"
     os.makedirs(strategy_folder, exist_ok=True)
 
     try:
@@ -80,16 +79,15 @@ def check_and_download_strategy(driver):
     return strategy_present, strategy_files
 
 
-def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
+def process_csv_and_extract_data(
+    csv_file_path, updated_csv_file_path, headless=True, strategy_folder="strategy_materials"
+):
     """Main function to read CSV, extract data from EELIS links, and save updated CSV."""
     df = read_csv(csv_file_path)
-    driver, wait = init_webdriver(
-        headless=False
-    )  # Change to headless=True for headless mode
+    driver, wait = init_webdriver(headless=headless)
 
     all_columns = set(df.columns)
 
-    # Ensure necessary columns exist
     strategy_present_column = "strategy_present"
     strategy_file_column = "strategy_file"
 
@@ -99,7 +97,6 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
     if strategy_file_column not in all_columns:
         df[strategy_file_column] = None
 
-    # Function to process each row
     for idx, row in df.iterrows():
         eelis_link = row["EELIS link"]
         if eelis_link == "NotFound":
@@ -107,16 +104,15 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
 
         driver.get(eelis_link)
 
-        # Extract table data
         table_data = gather_table_data(driver, wait)
 
-        # Check for strategy
-        strategy_present, strategy_files = check_and_download_strategy(driver)
+        strategy_present, strategy_files = check_and_download_strategy(
+            driver, strategy_folder=strategy_folder
+        )
         df.at[idx, strategy_present_column] = strategy_present
         if strategy_present:
             df.at[idx, strategy_file_column] = "; ".join(strategy_files)
 
-        # Add new data to DataFrame
         for key, value in table_data.items():
             key = key.replace("\n", " ").strip()
             value = value.replace("\n", " ").strip()
@@ -125,25 +121,48 @@ def process_csv_and_extract_data(csv_file_path, updated_csv_file_path):
                 all_columns.add(key)
             df.at[idx, key] = value
 
-    # Close the browser
     driver.quit()
 
-    # Subset the DataFrame
     columns_to_keep = [
-        "Estonian Name", "Latin Name", "Category", "EELIS link", "strategy_present",
-        "strategy_file", "Tüüp", "Nimi ladina k", "Nimi eesti k", "Nimi inglise k",
-        "Rühm", "Kaitsekategooria", "Kirjeldus", "Direktiivi lisad", "Liigi ohustatuse hinnang",
-        "Ohutegurite kirjeldus", "Liigi tegevuskava", "Kaitsealused alad, kus on kaitse eesmärgiks"
+        "Estonian Name",
+        "Latin Name",
+        "Category",
+        "EELIS link",
+        "strategy_present",
+        "strategy_file",
+        "Tüüp",
+        "Nimi ladina k",
+        "Nimi eesti k",
+        "Nimi inglise k",
+        "Rühm",
+        "Kaitsekategooria",
+        "Kirjeldus",
+        "Direktiivi lisad",
+        "Liigi ohustatuse hinnang",
+        "Ohutegurite kirjeldus",
+        "Liigi tegevuskava",
+        "Kaitsealused alad, kus on kaitse eesmärgiks",
     ]
 
-    df = df[df['Rühm'] == 'Linnud'][columns_to_keep]
+    df = df[df["Rühm"] == "Linnud"][columns_to_keep]
 
-    # Save the updated DataFrame back to CSV
     df.to_csv(updated_csv_file_path, index=False)
     print(f"Updated CSV saved to {updated_csv_file_path}")
 
 
-# Example usage
-process_csv_and_extract_data(
-    "st2_EELIS_kaitsekategooria_selgroogsed_loomad.csv", "st3_EELIS_additional_data.csv"
-)
+def main(
+    input_csv_path: str = "st2_EELIS_kaitsekategooria_selgroogsed_loomad.csv",
+    output_csv_path: str = "st3_EELIS_additional_data.csv",
+    headless: bool = True,
+    strategy_folder: str = "strategy_materials",
+) -> None:
+    process_csv_and_extract_data(
+        input_csv_path,
+        output_csv_path,
+        headless=headless,
+        strategy_folder=strategy_folder,
+    )
+
+
+if __name__ == "__main__":
+    main()
