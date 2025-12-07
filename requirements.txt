@@ -1,0 +1,9 @@
+pandas
+requests
+selenium
+webdriver-manager
+pymupdf
+pdf2image
+pytesseract
+openai
+tqdm

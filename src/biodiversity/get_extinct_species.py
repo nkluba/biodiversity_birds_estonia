@@ -109,7 +109,7 @@ def main():
     data_2 = parse_species_data(url_2, sections_url_2)
 
     all_data = data_1 + data_2
-    save_to_csv(all_data, "../data/st1_kaitsekategooria_selgroogsed_loomad.csv")
+    save_to_csv(all_data, "../../data/st1_kaitsekategooria_selgroogsed_loomad.csv")
 
 
 if __name__ == "__main__":
